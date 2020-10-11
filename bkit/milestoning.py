@@ -59,7 +59,7 @@ class MilestoningModel:
         
         self._graph = nx.Graph()
         if ndim > 1:
-            tri = scipy.spatial.Delaunay(points)
+            tri = scipy.spatial.Delaunay(anchors)
             indptr, indices = tri.vertex_neighbor_vertices
             for i in range(nanchors-1):
                 self._graph.add_edges_from([(i, j) for j in indices[indptr[i]:indptr[i+1]]])
@@ -73,6 +73,7 @@ class MilestoningModel:
   
         self._schedules = []
         self._dtrajs = []
+        self._cutoff = np.Inf
     
     @property
     def milestones(self):
@@ -94,7 +95,9 @@ class MilestoningModel:
     def load_trajectory_data(self, trajs, dt=1):
         
         for traj in trajs:
-            node_path = [self._parent_node[k] for k in self._anchor_kdtree.query(traj)[1]]
+            _, indices = self._anchor_kdtree.query(traj, distance_upper_bound=self._cutoff)
+            
+            node_path = [self._parent_node[k] for k in indices]
             self._dtrajs.append(node_path)
             
             edge_path = list(zip(node_path[:-1], node_path[1:]))
