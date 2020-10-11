@@ -10,3 +10,9 @@ Python package and Jupyter notebooks for exploring protein−ligand dissociation
 - NumPy
 - <a href="http://emma-project.org/">PyEMMA</a>
 - SciPy
+
+## Installation
+
+    $ git clone https://github.com/chang-group/bkit
+    $ pip install ./bkit
+
