@@ -4,6 +4,7 @@ Python package and Jupyter notebooks for exploring protein-ligand dissociation u
 
 ## Requirements
 
+- Matplotlib
 - <a href="http://mdtraj.org/">MDTraj</a>
 - <a href="https://networkx.github.io/">NetworkX</a>
 - NumPy
