@@ -5,9 +5,9 @@ import itertools
 import networkx as nx
 
 class Schedule:
-    def __init__(self, a0=None):
-        if a0:
-            self.labels = [a0]
+    def __init__(self, a=None):
+        if a:
+            self.labels = [a]
             self.lengths = np.array([0])
         else:
             self.labels = []
