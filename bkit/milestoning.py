@@ -6,48 +6,45 @@ import networkx as nx
 
 class Schedule:
     def __init__(self, a=None):
+        self.labels = []
+        self.lengths = []
         if a:
-            self.labels = [a]
-            self.lengths = np.array([0])
-        else:
-            self.labels = []
-            self.lengths = np.array([])
+            self.append(a, 0)
     
     def append(self, a, t):
         assert t >= 0
         self.labels.append(a)
-        self.lengths = np.append(self.lengths, [t])
+        self.lengths.append(t)
 
     def length(self):
-        return self.lengths.sum()
+        return sum(self.lengths)
 
     def scale(s):
         assert s >= 0
-        self.lengths = self.lengths * s
+        self.lengths = [s * t for t in self.lengths]
         
     def reduce(self):
-        selectors = self.lengths != 0
-        self.labels = list(itertools.compress(self.labels, selectors))
-        self.lengths = self.lengths[selectors]
-    
-    def is_reduced(self):
-        return not np.any(self.lengths == 0)
+        self.labels = [a for a, t in zip(self.labels, self.lengths) if t > 0]
+        self.lengths = [t for t in self.lengths if t > 0]
     
     def __str__(self):
-        return ''.join([f'({a}, {t})' for a, t in zip(self.labels, self.lengths)])
+        return ''.join(map(str, self))
+
+    def __iter__(self):
+        return zip(self.labels, self.lengths)
 
     def __getitem__(self, key):
         if isinstance(key, int):
             return (self.labels[key], self.lengths[key])
         else:
-            return Schedule(self.labels[key], self.lengths[key])
-    
+            other = Schedule()
+            other.labels = self.labels[key]
+            other.lengths = self.lengths[key]
+            return other
+
     def __delitem__(self, key):
         del self.labels[key]
-        self.lengths = np.delete(self.lengths, key)
-    
-    def __iter__(self):
-        return zip(self.labels, self.lengths)
+        del self.lengths[key]
         
     def __len__(self):
         return len(self.labels)
