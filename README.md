@@ -6,6 +6,7 @@ Python package and Jupyter notebooks for exploring protein−ligand dissociation
 
 - Matplotlib
 - <a href="http://mdtraj.org/">MDTraj</a>
+- MSMTools
 - <a href="https://networkx.github.io/">NetworkX</a>
 - NumPy
 - <a href="http://emma-project.org/">PyEMMA</a>
