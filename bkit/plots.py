@@ -1,9 +1,11 @@
 import matplotlib.pyplot as plt
-from matplotlib.backend_bases import MouseButton
 import numpy as np
+from matplotlib.backend_bases import MouseButton
+
 
 # Adapted from example at https://matplotlib.org/3.1.1/users/event_handling.html
 class LineBuilder:
+
     def __init__(self, line):
         self.line = line
         self.xs = list(line.get_xdata())
@@ -21,6 +23,8 @@ class LineBuilder:
         self.line.set_data(self.xs, self.ys)
         self.line.figure.canvas.draw()
 
+
+# TODO: Check out pyemma.plots to see how things are handled there.
 def path_input_plot(data, naverage=100, cmap='Blues', cbar_label='frame index'):
     fig = plt.figure()
     
@@ -44,3 +48,4 @@ def path_input_plot(data, naverage=100, cmap='Blues', cbar_label='frame index'):
     linebuilder = LineBuilder(line)
     
     return fig, linebuilder.xs, linebuilder.ys
+
