@@ -1,6 +1,6 @@
-import deeptime.markov.tools.analysis as markovana
 import numpy as np
 import scipy.linalg as linalg
+from deeptime.markov.tools import analysis
 
 
 class CTMC:
@@ -26,7 +26,7 @@ class CTMC:
 
     @rate_matrix.setter
     def rate_matrix(self, value):
-        if not markovana.is_rate_matrix(value):
+        if not analysis.is_rate_matrix(value):
             raise ValueError('Invalid rate matrix.')
         self._rate_matrix = np.asarray(value)
     
