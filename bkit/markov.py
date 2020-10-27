@@ -107,6 +107,13 @@ class CTMC:
         """Number of states in the chain."""
         return len(self.rate_matrix)
 
+    @property
+    def jump_chain(self):
+        """Embedded discrete-time Markov chain."""
+        P = -self.rate_matrix / np.diag(self.rate_matrix)[:, np.newaxis]
+        np.fill_diagonal(P, 0.)
+        return DTMC(P)
+
     def mfpt(self, target):
         """Mean first passage times to a target set of states.
 
