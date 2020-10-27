@@ -3,7 +3,7 @@ import scipy.linalg as linalg
 from deeptime.markov.tools import analysis
 
 
-class DTMC:
+class DiscreteTimeChain:
     """Discrete-time Markov chain with given transition matrix."""
 
     def __init__(self, transition_matrix, timestep=1.):
@@ -12,9 +12,9 @@ class DTMC:
         Parameters
         ----------
         transition_matrix : (M, M) ndarray
-            Right stochastic matrix of 1-step transition probabilities.
-        timestep : positive float, optional
-            Time corresponding to one step of the chain.
+            Matrix of one-step transition probabilities, right stochastic.
+        timestep : float
+            Time corresponding to one step of the chain, positive (>0).
 
         """
         self.transition_matrix = transition_matrix
@@ -48,17 +48,17 @@ class DTMC:
         return analysis.stationary_distribution(self.transition_matrix)
 
     @property
-    def nstates(self):
+    def n_states(self):
         """Number of states in the chain."""
         return len(self.transition_matrix)
 
     def mfpt(self, target):
-        """Mean first passage times to a target set of states.
+        """Compute mean first passage times to a target set of states.
 
         Parameters
         ----------
-        target : int or list of int
-            Index or indices of the target states.
+        target : int, slice, index array, or Boolean array
+            Indices of the target states.
 
         Returns
         -------
@@ -69,7 +69,7 @@ class DTMC:
         return analysis.mfpt(self.transition_matrix, target, tau=self.timestep)
 
 
-class CTMC:
+class ContinuousTimeChain:
     """Continuous-time Markov chain with given rate matrix."""
 
     def __init__(self, rate_matrix):
@@ -103,24 +103,24 @@ class CTMC:
         return basis[0] / basis[0].sum()
 
     @property
-    def nstates(self):
+    def n_states(self):
         """Number of states in the chain."""
         return len(self.rate_matrix)
 
     @property
     def jump_chain(self):
-        """Embedded discrete-time Markov chain."""
+        """The embedded discrete-time Markov chain."""
         P = -self.rate_matrix / np.diag(self.rate_matrix)[:, np.newaxis]
-        np.fill_diagonal(P, 0.)
-        return DTMC(P)
+        np.fill_diagonal(P, 0)
+        return DiscreteTimeChain(P)
 
     def mfpt(self, target):
-        """Mean first passage times to a target set of states.
+        """Compute mean first passage times to a target set of states.
 
         Parameters
         ----------
-        target : int or list of int
-            Index or indices of the target states.
+        target : int, slice, index array, or Boolean array
+            Indices of the target states.
 
         Returns
         -------
