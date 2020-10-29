@@ -57,7 +57,7 @@ class MilestoningEstimator:
 
         Parameters
         ----------
-        milestones : list
+        milestones : List[Hashable]
             The milestones over which trajectories are decomposed.
 
         """
@@ -92,10 +92,10 @@ class MilestoningEstimator:
         
 
 class TrajectoryDecomposer:
-    """Decomposition of trajectories by milestoning."""
+    """Path decomposition by milestoning with Voronoi tessellations."""
 
     def __init__(self, anchors, cutoff=np.inf, boxsize=None):
-        """Define milestones by Voronoi tessellation.
+        """Trajectory decomposer with given (partitioned) set of anchors.
 
         Parameters
         ----------
@@ -106,14 +106,16 @@ class TrajectoryDecomposer:
             as a single cell.
 
         cutoff : positive float, optional
-            Maximum distance to nearest anchor. A trajectory segment
-            between two milestones is only counted as a transition if 
-            it stays within the cutoff.
+            Maximum distance to nearest anchor. The region of space 
+            beyond the cutoff is treated as a cell labeled `None`.
  
        boxsize : array_like or scalar, optional (not yet implemented)
-            Apply d-dimensional toroidal topology (periodic boundaries)
+            Apply d-dimensional toroidal topology (periodic boundaries).
 
         """
+        if boxsize:
+            raise NotImplementedError('patience')
+
         if type(anchors) is np.ndarray:
             self._parent_cell = dict((k, k) for k in range(len(anchors))
         else:
