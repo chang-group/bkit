@@ -2,7 +2,6 @@ import bkit.markov as markov
 import networkx as nx
 import numpy as np
 import scipy.spatial as spatial
-from bkit._schedule import Schedule
 
 
 class MarkovianMilestoningModel(markov.ContinuousTimeChain):
@@ -15,7 +14,7 @@ class MarkovianMilestoningModel(markov.ContinuousTimeChain):
         ----------
         rate_matrix : ndarray (M, M)
             Matrix :math:`Q` of transition rates between milestones.
-        milestones : list of length M
+        milestones : sequence of length M
             The milestones corresponding to the indices of :math:`Q`.
 
         """
@@ -29,8 +28,8 @@ class MarkovianMilestoningModel(markov.ContinuousTimeChain):
 
     @milestones.setter
     def milestones(self, value):
-        if len(value) != len(self.states):
-            raise ValueError('Length does not match number of milestones.')
+        if len(value) != self.n_states:
+            raise ValueError('# of milestones must match len(rate_matrix)')
         self._milestones = milestones
 
     @property
@@ -41,7 +40,7 @@ class MarkovianMilestoningModel(markov.ContinuousTimeChain):
     @property
     def mean_lifetimes(self):
         """The mean waiting time associated with each milestone.""" 
-        return -1. / np.diag(self.rate_matrix)
+        return -1 / np.diag(self.rate_matrix)
 
     @property
     def stationary_fluxes(self):
@@ -57,7 +56,7 @@ class MilestoningEstimator:
         Parameters
         ----------
         milestones : list
-            Milestones on which trajectories are decomposed.
+            Milestones over which trajectories are decomposed.
 
         """
         self._ix = dict((a, ix) for ix, a in enumerate(milestones))
@@ -71,8 +70,8 @@ class MilestoningEstimator:
 
         Parameters
         ----------
-        schedules : list of Schedule
-            Sequences of (milestone, lifetime) pairs obtained by 
+        schedules : list of lists of pairs
+            Lists of (milestone, lifetime) pairs obtained by 
             trajectory decomposition.
 
         """
@@ -115,10 +114,10 @@ class TrajectoryDecomposer:
 
         """
         if type(anchors) is np.ndarray:
-            self._parent_cell = dict((i, i) for i in range(len(anchors))
+            self._parent_cell = dict((k, k) for k in range(len(anchors))
         else:
-            self._parent_cell = dict((k, i) for i, a in enumerate(anchors)
-                                            for k in range(len(a))]
+            self._parent_cell = dict((k, i) for i, arr in enumerate(anchors)
+                                            for k in range(len(arr))]
             anchors = np.concatenate(anchors)
         n_anchors, n_dim = anchors.shape 
 
@@ -131,7 +130,7 @@ class TrajectoryDecomposer:
         else:
             G.add_edges_from([(k, k+1) for k in range(n_anchors-1)])
         partition = lambda k, l: self._parent_cell[k] == self._parent_cell[l]
-        self._graph = nx.quotient_graph(G, partition)
+        self._graph = nx.quotient_graph(G, partition, relabel=True)
 
         self._kdtree = spatial.cKDTree(anchors)    
         
@@ -140,21 +139,35 @@ class TrajectoryDecomposer:
             self._parent_cell.append(None)
     
     @property
-    def anchors(self):
-        """Generating points of the Voronoi tessellation."""
-        return self._kdtree.data
-
-    @property
-    def cells(self):
-        """Cells of the partition (frozensets of anchor indices).""" 
-        return self._graph.nodes
+    def cell_anchor_mapping(self):
+        """Mapping from cells to anchor points."""
+        mapping = dict((i, []) for i in self._graph.nodes)
+        for k, i in self._parent_cell.items():
+            mapping[i] += self._kdtree.data[k]
+        return mapping
 
     @property
     def milestones(self):
-        """Milestones (pairs of adjacent cells)."""
-        return self._graph.edges  
+        """List of milestones."""
+        return list(frozenset(e) for e in self._graph.edges)
  
-    def decompose(self, trajs, dt=1.):
+    def remove_milestone(self, i, j):
+        """Remove the milestone between cells i and j.
+
+        Parameters
+        ----------
+        i, j : int
+            Indices of cells to merge.
+
+        """
+        if not self._graph.has_edge(i, j):
+            raise ValueError('milestone does not exist; cannot remove it')
+        self._graph = nx.contracted_nodes(self._graph, i, j, self_loops=False)
+        for k in self._parent_cell:
+            if self._parent_cell[k] == j:
+                self._parent_cell[k] = i
+
+    def decompose(self, trajs, dt=1):
         """Decompose trajectories according to last-hit milestone.
 
         Parameters
@@ -162,19 +175,19 @@ class TrajectoryDecomposer:
         trajs : ndarray (T, d) or list of ndarray (T_i, d)
             Trajectories to be milestoned.
 
-        dt : positive float, optional
-            Trajectory sampling interval.
+        dt : int or float, optional
+            Trajectory sampling interval, positive (>0)
 
         Returns
         -------
-        schedules : Schedule or list of Schedule
+        schedules : list of list of tuple
             Sequences of (milestone, lifetime) pairs obtained by 
             trajectory decomposition. The initial milestone of a
             trajectory is defined to be {None, initial_cell}.
 
         """ 
         if type(trajs) is np.ndarray:
-            return self._milestone_schedule(traj, dt)
+            trajs = [trajs]
         return [self._milestone_schedule(traj, dt) for traj in trajs]
 
     def _milestone_schedule(self, traj, dt):
@@ -182,20 +195,14 @@ class TrajectoryDecomposer:
         dtraj = np.fromiter((self._parent_cell[k] for k in indices), int)
         return _dtraj_to_milestone_schedule(dtraj, dt)
  
-    def remove_milestone(self, i, j):
-        assert self._graph.has_edge(i, j)
-        self._graph = nx.contracted_nodes(self._graph, i, j, self_loops=False)
-        self._parent_cell = [i if k == j else k for k in self._parent_cell]
 
-
-def _dtraj_to_milestone_schedule(dtraj, dt=1.):
-    initial_milestone = frozenset({None, dtraj[0]})
-    schedule = Schedule([initial_milestone], [0.])
+def _dtraj_to_milestone_schedule(dtraj, dt=1):
+    milestones = [frozenset({None, dtraj[0]})]
+    lifetimes = [0]
     for i, j in zip(dtraj[:-1], dtraj[1:]):
-        if j in schedule.labels[-1]:
-            schedule.lengths[-1] += dt
-        else:
-            schedule.append(frozenset({i, j}), dt)
-    schedule.reduce()
-    return schedule
+        lifetimes[-1] += dt
+        if j not in milestones[-1]:
+            milestones.append(frozenset({i, j}))
+            lifetimes.append(0)
+    return list(zip(milestones, lifetimes))
 
