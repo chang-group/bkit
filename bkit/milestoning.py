@@ -1,20 +1,21 @@
-import bkit.markov as markov
 import networkx as nx
 import numpy as np
 import scipy.spatial as spatial
+from bkit.markov import ContinousTimeMarkovChain
 
 
-class MarkovianMilestoningModel(markov.ContinuousTimeChain):
+class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
     """Milestoning process governed by a continuous-time Markov chain."""
 
     def __init__(self, rate_matrix, milestones):
-        """Construct the model from a rate matrix and a set of milestones.
+        """Model with a given rate matrix and indexed set of milestones.
 
         Parameters
         ----------
-        rate_matrix : ndarray (M, M)
+        rate_matrix : (M, M) ndarray
             Matrix :math:`Q` of transition rates between milestones.
-        milestones : sequence of length M
+
+        milestones : list, length M
             The milestones corresponding to the indices of :math:`Q`.
 
         """
@@ -29,7 +30,8 @@ class MarkovianMilestoningModel(markov.ContinuousTimeChain):
     @milestones.setter
     def milestones(self, value):
         if len(value) != self.n_states:
-            raise ValueError('# of milestones must match len(rate_matrix)')
+            msg = 'number of milestones must match dimension of rate matrix'
+            raise ValueError(msg)
         self._milestones = milestones
 
     @property
@@ -56,7 +58,7 @@ class MilestoningEstimator:
         Parameters
         ----------
         milestones : list
-            Milestones over which trajectories are decomposed.
+            The milestones over which trajectories are decomposed.
 
         """
         self._ix = dict((a, ix) for ix, a in enumerate(milestones))
@@ -84,9 +86,8 @@ class MilestoningEstimator:
                 self._total_time[a] += t
         self._schedules += schedules
 
-    @property
-    def max_likelihood_markov_model(self):
-        """The maximum likelihood MarkovianMilestoningModel."""
+    def fetch_markov_model(self):
+        """Return the maximum likelihood MarkovianMilestoningModel."""
         pass
         
 
@@ -157,7 +158,8 @@ class TrajectoryDecomposer:
         Parameters
         ----------
         i, j : int
-            Indices of cells to merge.
+            Indices of cells to merge. Cell `j` is merged into cell `i`, 
+            and `j` is removed from the cell index set.
 
         """
         if not self._graph.has_edge(i, j):
@@ -196,7 +198,32 @@ class TrajectoryDecomposer:
         return _dtraj_to_milestone_schedule(dtraj, dt)
  
 
-def _dtraj_to_milestone_schedule(dtraj, dt=1):
+def _dtraj_to_milestone_schedule(dtraj, dt=1, forward_milestoning=False):
+    """'Milestone' a discrete trajectory.
+
+    Parameters
+    ----------
+    dtraj : (T,) ndarray, dtype=int
+        A discrete trajectory.
+
+    dt : int or float, optional
+        Trajectory sampling interval.
+
+    forward_milestoning : bool, optional
+        If true, track the next milestone hit (forward commitment),
+        rather than the last milestone hit (backward commitment).
+
+    Returns
+    -------
+    schedule : list of tuple
+        Sequence of (milestone, lifetime) pairs. For backward milestoning,
+        the first milestone is set to `{None, dtraj[0]}`. For forward
+        milestoning, the last milestone is set to `{dtraj[-1], None}`.
+        (In fact the milestones are `frozenset`s, which are hashable.)
+    
+    """
+    if forward_milestoning:
+        dtraj = reversed(dtraj)
     milestones = [frozenset({None, dtraj[0]})]
     lifetimes = [0]
     for i, j in zip(dtraj[:-1], dtraj[1:]):
@@ -204,5 +231,8 @@ def _dtraj_to_milestone_schedule(dtraj, dt=1):
         if j not in milestones[-1]:
             milestones.append(frozenset({i, j}))
             lifetimes.append(0)
-    return list(zip(milestones, lifetimes))
+    schedule = list(zip(milestones, lifetimes))
+    if forward_milestoning:
+        return reversed(schedule)
+    return schedule
 
