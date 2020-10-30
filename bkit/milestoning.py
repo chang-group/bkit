@@ -66,9 +66,9 @@ class MilestoningEstimator:
         self._schedules = []
         self._count_matrix = np.zeros((len(milestones), len(milestones),
                                       dtype=int)
-        self._total_time = dict((a, 0) for a in milestones)
+        self._total_times = np.zeros(len(milestones))
 
-    def load_schedules(self, schedules):
+    def load_schedules(self, schedules, forward=False):
         """Incorporate data in the form of milestone schedules.
 
         Parameters
@@ -78,18 +78,23 @@ class MilestoningEstimator:
             trajectory decomposition.
 
         """
+        if forward:
+            raise NotImplementedError()
+
         for schedule in schedules:
             it = zip(schedule[:-1], schedule[1:])
             for (a, t), (b, _) in it:
                 if a not in self._ix or b not in self._ix:
                     continue
                 self._count_matrix[self._ix[a], self._ix[b]] += 1
-                self._total_time[a] += t
+                self._total_times[self._ix[a]] += t
         self._schedules += schedules
 
     def fetch_markov_model(self):
         """Return the maximum likelihood Markovian milestoning model."""
-        Q = self._count_matrix / self._total_time[:, np.newaxis]
+        total_counts = np.sum(self._count_matrix, axis=1)
+        Q = ((self._count_matrix - np.diag(total_counts))
+             / self._total_time[:, np.newaxis])
         return MarkovianMilestoningModel(Q, self._milestones)
 
 
