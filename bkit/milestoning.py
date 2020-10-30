@@ -61,6 +61,7 @@ class MilestoningEstimator:
             The milestones over which trajectories are decomposed.
 
         """
+        self._milestones = milestones
         self._ix = dict((a, ix) for ix, a in enumerate(milestones))
         self._schedules = []
         self._count_matrix = np.zeros((len(milestones), len(milestones),
@@ -87,9 +88,10 @@ class MilestoningEstimator:
         self._schedules += schedules
 
     def fetch_markov_model(self):
-        """Return the maximum likelihood MarkovianMilestoningModel."""
-        pass
-        
+        """Return the maximum likelihood Markovian milestoning model."""
+        Q = self._count_matrix / self._total_time[:, np.newaxis]
+        return MarkovianMilestoningModel(Q, self._milestones)
+
 
 class TrajectoryDecomposer:
     """Path decomposition by milestoning with Voronoi tessellations."""
@@ -200,7 +202,7 @@ class TrajectoryDecomposer:
 
     def _traj_to_milestone_schedule(self, traj, dt=1, forward=False):
         _, ktraj = self._kdtree.query(traj, distance_upper_bound=self._cutoff)
-        dtraj = np.fromiter((self._parent_cell[k] for k in ktraj), int)
+        dtraj = [self._parent_cell[k] for k in ktraj]
         return dtraj_to_milestone_schedule(dtraj, dt, forward)
  
 
