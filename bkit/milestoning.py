@@ -171,47 +171,51 @@ class TrajectoryDecomposer:
             if self._parent_cell[k] == j:
                 self._parent_cell[k] = i
 
-    def decompose(self, trajs, dt=1):
-        """Decompose trajectories according to last-hit milestone.
+    def decompose(self, trajs, dt=1, forward=False):
+        """Map trajectories to milestone schedules.
 
         Parameters
         ----------
         trajs : ndarray (T, d) or list of ndarray (T_i, d)
-            Trajectories to be milestoned.
+            Trajectories to be decomposed.
 
         dt : int or float, optional
             Trajectory sampling interval, positive (>0)
 
+        forward : bool, optional
+            If true, track the next milestone hit (forward commitment),
+            rather than the last milestone hit (backward commitment).
+    
         Returns
         -------
         schedules : list of list of tuple
             Sequences of (milestone, lifetime) pairs obtained by 
-            trajectory decomposition. The initial milestone of a
-            trajectory is defined to be {None, initial_cell}.
+            trajectory decomposition.
 
         """ 
         if type(trajs) is np.ndarray:
             trajs = [trajs]
-        return [self._milestone_schedule(traj, dt) for traj in trajs]
+        return [self._traj_to_milestone_schedule(traj, dt, forward)
+                for traj in trajs]
 
-    def _milestone_schedule(self, traj, dt):
-        _, indices = self._kdtree.query(traj, distance_upper_bound=self._cutoff)
-        dtraj = np.fromiter((self._parent_cell[k] for k in indices), int)
-        return _dtraj_to_milestone_schedule(dtraj, dt)
+    def _traj_to_milestone_schedule(self, traj, dt=1, forward=False):
+        _, ktraj = self._kdtree.query(traj, distance_upper_bound=self._cutoff)
+        dtraj = np.fromiter((self._parent_cell[k] for k in ktraj), int)
+        return dtraj_to_milestone_schedule(dtraj, dt, forward)
  
 
-def _dtraj_to_milestone_schedule(dtraj, dt=1, forward_milestoning=False):
+def dtraj_to_milestone_schedule(dtraj, dt=1, forward=False):
     """'Milestone' a discrete trajectory.
 
     Parameters
     ----------
-    dtraj : (T,) ndarray, dtype=int
+    dtraj : list of int or ndarray(T, dtype=int)
         A discrete trajectory.
 
     dt : int or float, optional
-        Trajectory sampling interval.
+        Trajectory sampling interval, positive (>0)
 
-    forward_milestoning : bool, optional
+    forward : bool, optional
         If true, track the next milestone hit (forward commitment),
         rather than the last milestone hit (backward commitment).
 
