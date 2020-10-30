@@ -94,7 +94,7 @@ class MilestoningEstimator:
         """Return the maximum likelihood Markovian milestoning model."""
         total_counts = np.sum(self._count_matrix, axis=1)
         Q = ((self._count_matrix - np.diag(total_counts))
-             / self._total_time[:, np.newaxis])
+             / self._total_times[:, np.newaxis])
         return MarkovianMilestoningModel(Q, self._milestones)
 
 
