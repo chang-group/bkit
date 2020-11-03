@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='bkit'
+    name='bkit',
     version='0.1.0',
     description='Binding Kinetics Toolkit',
     url='https://github.com/chang-group/bkit',
