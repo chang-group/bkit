@@ -36,12 +36,12 @@ class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
 
     @property
     def transition_kernel(self):
-        """Transition probability matrix :math:`K`."""
+        """Transition matrix :math:`K` of the embedded jump chain."""
         return self.jump_chain.transition_matrix
 
     @property
     def mean_lifetimes(self):
-        """The mean waiting time associated with each milestone.""" 
+        """The mean sojourn time associated with each milestone.""" 
         return -1 / np.diag(self.rate_matrix)
 
     @property
@@ -64,7 +64,7 @@ class MilestoningEstimator:
         self._milestones = milestones
         self._ix = dict((a, ix) for ix, a in enumerate(milestones))
         self._schedules = []
-        self._count_matrix = np.zeros((len(milestones), len(milestones),
+        self._count_matrix = np.zeros((len(milestones), len(milestones)),
                                       dtype=int)
         self._total_times = np.zeros(len(milestones))
 
@@ -82,8 +82,7 @@ class MilestoningEstimator:
             raise NotImplementedError()
 
         for schedule in schedules:
-            it = zip(schedule[:-1], schedule[1:])
-            for (a, t), (b, _) in it:
+            for (a, t), (b, _) in zip(schedule[:-1], schedule[1:]):
                 if a not in self._ix or b not in self._ix:
                     continue
                 self._count_matrix[self._ix[a], self._ix[b]] += 1
@@ -159,7 +158,7 @@ class TrajectoryDecomposer:
     @property
     def milestones(self):
         """List of milestones."""
-        return list(frozenset(e) for e in self._graph.edges)
+        return list(frozenset(a) for a in self._graph.edges)
  
     def remove_milestone(self, i, j):
         """Remove the milestone between cells i and j.
@@ -204,6 +203,14 @@ class TrajectoryDecomposer:
             trajs = [trajs]
         return [self._traj_to_milestone_schedule(traj, dt, forward)
                 for traj in trajs]
+
+    def _is_time_resolved(schedule):
+        """Check whether all transitions are between adjacent cells."""
+        for (a, t) in schedule:
+            if None in a or self._graph.has_edge(*a):
+                continue
+            return False
+        return True
 
     def _traj_to_milestone_schedule(self, traj, dt=1, forward=False):
         _, ktraj = self._kdtree.query(traj, distance_upper_bound=self._cutoff)
