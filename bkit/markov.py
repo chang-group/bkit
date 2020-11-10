@@ -1,125 +1,65 @@
 import numpy as np
-import scipy.linalg as linalg
-from deeptime.markov.tools import analysis
+import deeptime.base
+import deeptime.markov.msm as msm
+import deeptime.markov.tools.analysis as msmana
 
 
-class DiscreteTimeChain:
-    """Discrete-time Markov chain with given transition matrix."""
-
-    def __init__(self, transition_matrix, timestep=1.):
-        """Construct a new model from a transition matrix.
-
-        Parameters
-        ----------
-        transition_matrix : (M, M) ndarray
-            Matrix of one-step transition probabilities, right stochastic.
-        timestep : float
-            Time corresponding to one step of the chain, positive (>0).
-
-        """
-        self.transition_matrix = transition_matrix
-        self.timestep = timestep
-
-    @property
-    def transition_matrix(self):
-        """Transition matrix."""
-        return self._transition_matrix
-
-    @transition_matrix.setter
-    def transition_matrix(self, value):
-        if not analysis.is_transition_matrix(value):
-            raise ValueError('Invalid transition matrix.')
-        self._transition_matrix = np.asarray(value)
-    
-    @property
-    def timestep(self):
-        """Time corresponding to one step of the chain."""
-        return self._timestep
-
-    @timestep.setter
-    def timestep(self, value):
-        if not value > 0:
-            raise ValueError('Timestep must be positive.')
-        self._timestep = value
-
-    @property
-    def stationary_distribution(self):
-        """Stationary distribution (may not be unique)."""
-        return analysis.stationary_distribution(self.transition_matrix)
-
-    @property
-    def n_states(self):
-        """Number of states in the chain."""
-        return len(self.transition_matrix)
-
-    def mfpt(self, target):
-        """Compute mean first passage times to a target set of states.
-
-        Parameters
-        ----------
-        target : int, slice, index array, or Boolean array
-            Indices of the target states.
-
-        Returns
-        -------
-        mfpt : (M,) ndarray
-            Mean first passage time from each state to the target set.
-
-        """
-        return analysis.mfpt(self.transition_matrix, target, tau=self.timestep)
-
-
-class ContinuousTimeChain:
-    """Continuous-time Markov chain with given rate matrix."""
+class ContinuousTimeMarkovModel(deeptime.base.Model):
+    """Continuous-time Markov model (i.e., Markov jump process)."""
 
     def __init__(self, rate_matrix):
-        """Construct a new model from a rate matrix.
+        """Continuous-time Markov model with a given rate matrix.
 
         Parameters
         ----------
         rate_matrix : (M, M) ndarray
-            Transition rate matrix. For j != i, rate_matrix[i, j] is
-            the transition rate from state i to state j. Diagonal
-            elements are defined such that each row sums to zero.
+            Transition rate matrix, row infinitesimal stochastic.
 
         """
         self.rate_matrix = rate_matrix
 
     @property
     def rate_matrix(self):
-        """Transition rate matrix."""
+        """Rate matrix (infinitesimal generator)."""
         return self._rate_matrix
 
     @rate_matrix.setter
     def rate_matrix(self, value):
-        if not analysis.is_rate_matrix(value):
-            raise ValueError('Invalid rate matrix.')
-        self._rate_matrix = np.asarray(value)
-
-    @property
-    def stationary_distribution(self):
-        """Stationary distribution (may not be unique)."""
-        basis = linalg.null_space(self.rate_matrix.T).T
-        return basis[0] / basis[0].sum()
-
-    @property
-    def n_states(self):
-        """Number of states in the chain."""
-        return len(self.rate_matrix)
-
-    @property
-    def jump_chain(self):
-        """The embedded discrete-time Markov chain."""
-        P = -self.rate_matrix / np.diag(self.rate_matrix)[:, np.newaxis]
+        if not msmana.is_rate_matrix(value):
+            raise ValueError('matrix must be row infinitesimal stochastic')
+        self._rate_matrix = value
+        # Update embedded Markov chain
+        P = self.rate_matrix / self.jump_rates[:, np.newaxis]
         np.fill_diagonal(P, 0)
-        return DiscreteTimeChain(P)
+        self._embedded_markov_model = msm.MarkovStateModel(P)
+
+    @property
+    def embedded_markov_model(self):
+        """Embedded discrete-time Markov model."""
+        return self._embedded_markov_model
+
+    @property
+    def jump_rates(self):
+        """Exponential rate parameter associated with each state."""
+        return -np.diag(self.rate_matrix)
+
+    @property
+    def stationary_distribution(self): 
+        """Stationary distribution on the model states."""
+        return (self.embedded_markov_model.stationary_distribution 
+                / self.jump_rates)
+
+    @property
+    def reversible(self):
+        """Whether the Markov chain is reversible."""
+        return self.embedded_markov_model.reversible
 
     def mfpt(self, target):
-        """Compute mean first passage times to a target set of states.
+        """Mean first passage times to a target set of states.
 
         Parameters
         ----------
-        target : int, slice, index array, or Boolean array
+        target : int or list of int
             Indices of the target states.
 
         Returns
@@ -128,10 +68,10 @@ class ContinuousTimeChain:
             Mean first passage time from each state to the target set.
 
         """
-        is_source = np.ones(self.nstates, dtype=bool)
+        is_source = np.ones(self.n_states, dtype=bool)
         is_source[target] = False
         Q = self.rate_matrix[is_source, :][:, is_source]
-        mfpt = np.zeros(self.nstates)
-        mfpt[is_source] = linalg.solve(Q, -np.ones(len(Q)))
+        mfpt = np.zeros(self.n_states)
+        mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
         return mfpt
 

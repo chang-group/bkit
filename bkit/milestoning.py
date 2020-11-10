@@ -1,23 +1,25 @@
+import bkit.markov
+import deeptime.base
 import networkx as nx
 import numpy as np
 import scipy.spatial as spatial
-from bkit.markov import ContinousTimeMarkovChain
 
 
-class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
+class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
     """Milestoning process governed by a continuous-time Markov chain."""
 
     def __init__(self, rate_matrix, milestones):
-        """Model with a given rate matrix and indexed set of milestones.
+        """Milestoning model with given rate matrix and set of milestones.
 
         Parameters
         ----------
         rate_matrix : (M, M) ndarray
-            Matrix :math:`Q` of transition rates between milestones.
+            Transition rate matrix, row infinitesimal stochastic.
 
-        milestones : list, length M
-            The milestones corresponding to the indices of :math:`Q`.
-
+        milestones : array_like
+            Ordered set of milestones indexed by the states of the 
+            underlying Markov model.
+           
         """
         super().__init__(rate_matrix)
         self.milestones = milestones
@@ -32,44 +34,62 @@ class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
         if len(value) != self.n_states:
             msg = 'number of milestones must match dimension of rate matrix'
             raise ValueError(msg)
-        self._milestones = milestones
+        self._milestones = value
 
     @property
     def transition_kernel(self):
-        """Transition matrix :math:`K` of the embedded jump chain."""
-        return self.jump_chain.transition_matrix
+        """Transition probability kernel of the embedded Markov chain."""
+        return self.embedded_markov_model.transition_matrix
 
     @property
     def mean_lifetimes(self):
-        """The mean sojourn time associated with each milestone.""" 
-        return -1 / np.diag(self.rate_matrix)
+        """The mean lifetime associated with each milestone.""" 
+        return 1 / self.jump_rates
 
     @property
     def stationary_fluxes(self):
-        """The stationary flux vector :math:`q`."""
-        return self.jump_chain.stationary_distribution
+        """The stationary flux vector."""
+        return self.embedded_markov_model.stationary_distribution
 
 
-class MilestoningEstimator:
+class MarkovianMilestoningEstimator(deeptime.base.Estimator):
+    """Estimator for Markovian milestoning models."""
 
-    def __init__(self, milestones):
-        """Initialize estimator.
+    def __init__(self, reversible=True, n_samples=None):
+        """Estimator for Markovian milestoning models.
 
         Parameters
         ----------
-        milestones : List[Hashable]
-            The milestones over which trajectories are decomposed.
+        reversible : bool, default=True
+            If True, restrict the ensemble of transition matrices to those
+            satisfying detailed balance.
+
+        n_samples : int, default=None
+            Number of samples to draw from the posterior distribution. 
+            If `None`, only compute maximum likelihood estimate.
+            
+        """
+        self.reversible = reversible
+        self.n_samples = n_samples
+
+    def fetch_model(self):
+        """Return the estimated models.
+
+        Returns
+        -------
+        model : MarkovianMilestoningModel or BayesianPosterior
 
         """
-        self._milestones = milestones
-        self._ix = dict((a, ix) for ix, a in enumerate(milestones))
-        self._schedules = []
-        self._count_matrix = np.zeros((len(milestones), len(milestones)),
-                                      dtype=int)
-        self._total_times = np.zeros(len(milestones))
 
-    def load_schedules(self, schedules, forward=False):
-        """Incorporate data in the form of milestone schedules.
+
+    def fit(self, data):
+        
+
+    def fit_from_discrete_timeseries(self, timeseries):
+        pass
+
+    def fit_from_schedules(self, schedules):
+        """Fit model from data in the form of milestone schedules.
 
         Parameters
         ----------
@@ -78,9 +98,7 @@ class MilestoningEstimator:
             trajectory decomposition.
 
         """
-        if forward:
-            raise NotImplementedError()
-
+        
         for schedule in schedules:
             for (a, t), (b, _) in zip(schedule[:-1], schedule[1:]):
                 if a not in self._ix or b not in self._ix:
@@ -88,13 +106,6 @@ class MilestoningEstimator:
                 self._count_matrix[self._ix[a], self._ix[b]] += 1
                 self._total_times[self._ix[a]] += t
         self._schedules += schedules
-
-    def fetch_markov_model(self):
-        """Return the maximum likelihood Markovian milestoning model."""
-        total_counts = np.sum(self._count_matrix, axis=1)
-        Q = ((self._count_matrix - np.diag(total_counts))
-             / self._total_times[:, np.newaxis])
-        return MarkovianMilestoningModel(Q, self._milestones)
 
 
 class TrajectoryDecomposer:
@@ -123,10 +134,10 @@ class TrajectoryDecomposer:
             raise NotImplementedError('patience')
 
         if type(anchors) is np.ndarray:
-            self._parent_cell = dict((k, k) for k in range(len(anchors))
+            self._parent_cell = {k: k for k in range(len(anchors))}
         else:
-            self._parent_cell = dict((k, i) for i, arr in enumerate(anchors)
-                                            for k in range(len(arr))]
+            self._parent_cell = {k: i for i, arr in enumerate(anchors)
+                                      for k in range(len(arr))}
             anchors = np.concatenate(anchors)
         n_anchors, n_dim = anchors.shape 
 
