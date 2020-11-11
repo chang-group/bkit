@@ -60,52 +60,55 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
 
         Parameters
         ----------
-        reversible : bool, default=True
-            If True, restrict the ensemble of transition matrices to those
-            satisfying detailed balance.
+        reversible : bool
+            If True, restrict the ensemble of transition probability
+            kernels to those satisfying detailed balance.
 
-        n_samples : int, default=None
+        n_samples : int
             Number of samples to draw from the posterior distribution. 
-            If `None`, only compute maximum likelihood estimate.
+            If `None`, compute only a maximum likelihood estimate.
             
         """
+        super().__init__()
         self.reversible = reversible
         self.n_samples = n_samples
 
-    def fetch_model(self):
-        """Return the estimated models.
-
-        Returns
-        -------
-        model : MarkovianMilestoningModel or BayesianPosterior
-
-        """
-
-
     def fit(self, data):
-        
+        self.fit_from_schedules(data)
 
     def fit_from_discrete_timeseries(self, timeseries):
         pass
 
     def fit_from_schedules(self, schedules):
-        """Fit model from data in the form of milestone schedules.
+        """Estimate model from data in the form of milestone schedules.
 
         Parameters
         ----------
-        schedules : list of lists of pairs
+        schedules : list of lists of tuples
             Lists of (milestone, lifetime) pairs obtained by 
             trajectory decomposition.
 
         """
-        
+        milestones = sorted({a for schedule in schedules for (a, t) in schedule
+                             if None not in a}, key=lambda a: sorted(a))
+        ix = {a: i for i, a in enumerate(milestones)}
+
+        count_matrix = np.zeros((len(milestones), len(milestones)))
+        total_times = np.zeros(len(milestones))
         for schedule in schedules:
             for (a, t), (b, _) in zip(schedule[:-1], schedule[1:]):
-                if a not in self._ix or b not in self._ix:
+                if a not in ix or b not in ix:
                     continue
-                self._count_matrix[self._ix[a], self._ix[b]] += 1
-                self._total_times[self._ix[a]] += t
-        self._schedules += schedules
+                count_matrix[ix[a], ix[b]] += 1
+                total_times[ix[a]] += t
+        total_counts = np.sum(count_matrix, axis=1)   
+
+        if not n_samples:
+            Q = ((count_matrix - np.diag(total_counts)) / 
+                 total_times[:, np.newaxis])
+            self._model = MarkovianMilestoningModel(Q, milestones) 
+        else:
+            pass
 
 
 class TrajectoryDecomposer:
