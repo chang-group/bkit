@@ -1,8 +1,12 @@
 import bkit.markov
 import deeptime.base
+import deeptime.markov.msm
+import deeptime.markov.tools.estimation as estimation
 import networkx as nx
 import numpy as np
 import scipy.spatial as spatial
+
+BayesianPosterior = deeptime.markov.msm.BayesianPosterior
 
 
 class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
@@ -74,7 +78,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         self.n_samples = n_samples
 
     def fit(self, data):
-        self.fit_from_schedules(data)
+        return self.fit_from_schedules(data)
 
     def fit_from_discrete_timeseries(self, timeseries):
         pass
@@ -88,13 +92,19 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             Lists of (milestone, lifetime) pairs obtained by 
             trajectory decomposition.
 
+        Returns
+        -------
+        self : MarkovianMilestoningEstimator
+            Reference to self.
+
         """
-        milestones = sorted({a for schedule in schedules for (a, t) in schedule
+        milestones = sorted({a for schedule in schedules for a, t in schedule
                              if None not in a}, key=lambda a: sorted(a))
         ix = {a: i for i, a in enumerate(milestones)}
+        m = len(milestones)
 
-        count_matrix = np.zeros((len(milestones), len(milestones)))
-        total_times = np.zeros(len(milestones))
+        count_matrix = np.zeros((m, m))
+        total_times = np.zeros(m)
         for schedule in schedules:
             for (a, t), (b, _) in zip(schedule[:-1], schedule[1:]):
                 if a not in ix or b not in ix:
@@ -103,19 +113,33 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
                 total_times[ix[a]] += t
         total_counts = np.sum(count_matrix, axis=1)   
 
+        # Maximum likelihood estimation
         if not n_samples:
-            Q = ((count_matrix - np.diag(total_counts)) / 
-                 total_times[:, np.newaxis])
+            K = estimation.transition_matrix(count_matrix, 
+                                             reversible=self.reversible)
+            t = total_times / total_counts
+            Q = K / t[:, np.newaxis] - np.diag(1/t)
             self._model = MarkovianMilestoningModel(Q, milestones) 
-        else:
-            pass
+            return self
+
+        # Sampling from posterior distribution 
+        Ks = estimation.tmatrix_sampler(count_matrix, 
+            reversible=self.reversible).sample(nsamples=self.n_samples)
+        vs = np.zeros((self.n_samples, m)) # v = 1/t = vector of jump rates
+        for i, (n, r) in enumerate(zip(total_counts, total_times)):
+            rng = np.random.default_rng()
+            vs[:, i] = rng.gamma(n, scale=1/r, size=self.n_samples)
+        Qs = [K * v[:, np.newaxis] - np.diag(v) for K, v in zip(Ks, vs)]
+        samples = [MarkovianMilestoningModel(Q, milestones) for Q in Qs]
+        self._model = BayesianPosterior(samples=samples)
+        return self
 
 
-class TrajectoryDecomposer:
-    """Path decomposition by milestoning with Voronoi tessellations."""
+class TrajectoryDecomposer(deeptime.base.Transformer):
+    """Mapping from trajectories to schedules of a milestoning process."""
 
     def __init__(self, anchors, cutoff=np.inf, boxsize=None):
-        """Trajectory decomposer with given (partitioned) set of anchors.
+        """Initialize trajectory decomposer.
 
         Parameters
         ----------
@@ -191,7 +215,7 @@ class TrajectoryDecomposer:
             if self._parent_cell[k] == j:
                 self._parent_cell[k] = i
 
-    def decompose(self, trajs, dt=1, forward=False):
+    def transform(self, trajs, dt=1, forward=False):
         """Map trajectories to milestone schedules.
 
         Parameters
