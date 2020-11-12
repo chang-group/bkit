@@ -183,7 +183,7 @@ class TrajectoryDecomposer(deeptime.base.Transformer):
         
         self._cutoff = cutoff
         if np.isfinite(cutoff):
-            self._parent_cell.append(None)
+            self._parent_cell[n_anchors] = None
     
     @property
     def cell_anchor_mapping(self):
