@@ -27,7 +27,7 @@ class ContinuousTimeMarkovModel(deeptime.base.Model):
     def rate_matrix(self, value):
         if not msmana.is_rate_matrix(value):
             raise ValueError('matrix must be row infinitesimal stochastic')
-        self._rate_matrix = value
+        self._rate_matrix = np.asarray(value)
         # Update embedded Markov chain
         P = self.rate_matrix / self.jump_rates[:, np.newaxis]
         np.fill_diagonal(P, 0)
@@ -37,6 +37,11 @@ class ContinuousTimeMarkovModel(deeptime.base.Model):
     def embedded_markov_model(self):
         """Embedded discrete-time Markov model."""
         return self._embedded_markov_model
+
+    @property
+    def n_states(self):
+        """Number of states in the model."""
+        return self.embedded_markov_model.n_states
 
     @property
     def jump_rates(self):

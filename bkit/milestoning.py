@@ -134,7 +134,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         return self
 
 
-class CoarseGrainer(deeptime.base.Transformer):
+class MilestoningCoarseGrainer(deeptime.base.Transformer):
     """Mapping from trajectories to schedules of a milestoning process."""
 
     def __init__(self, anchors, boxsize=None, cutoff=np.inf):
