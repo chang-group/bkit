@@ -2,9 +2,8 @@ import bkit.markov
 import deeptime.base
 import deeptime.markov.msm
 import deeptime.markov.tools.estimation as estimation
-import networkx as nx
 import numpy as np
-import scipy.spatial as spatial
+import scipy.spatial
 
 BayesianPosterior = deeptime.markov.msm.BayesianPosterior
 
@@ -135,10 +134,10 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         return self
 
 
-class TrajectoryDecomposer(deeptime.base.Transformer):
+class CoarseGrainer(deeptime.base.Transformer):
     """Mapping from trajectories to schedules of a milestoning process."""
 
-    def __init__(self, anchors, cutoff=np.inf, boxsize=None):
+    def __init__(self, anchors, boxsize=None, cutoff=np.inf):
         """Initialize trajectory decomposer.
 
         Parameters
@@ -148,73 +147,26 @@ class TrajectoryDecomposer(deeptime.base.Transformer):
             If a list of ndarrays is given, each subset of anchors
             indicates a union of Voronoi cells that should be treated 
             as a single cell.
+ 
+        boxsize : array_like or scalar, optional
+            Apply d-dimensional toroidal topology (periodic boundaries).
 
         cutoff : positive float, optional
             Maximum distance to nearest anchor. The region of space 
             beyond the cutoff is treated as a cell labeled `None`.
- 
-       boxsize : array_like or scalar, optional (not yet implemented)
-            Apply d-dimensional toroidal topology (periodic boundaries).
 
         """
-        if boxsize:
-            raise NotImplementedError('patience')
-
         if type(anchors) is np.ndarray:
-            self._parent_cell = {k: k for k in range(len(anchors))}
+            self._parent_cell = list(range(len(anchors)))
         else:
-            self._parent_cell = {k: i for i, arr in enumerate(anchors)
-                                      for k in range(len(arr))}
+            self._parent_cell = [i for i, arr in enumerate(anchors) 
+                                   for k in range(len(arr))]
             anchors = np.concatenate(anchors)
-        n_anchors, n_dim = anchors.shape 
-
-        G = nx.Graph()
-        if n_dim > 1:
-            tri = spatial.Delaunay(anchors)
-            indptr, indices = tri.vertex_neighbor_vertices
-            G.add_edges_from([(k, l) for k in range(n_anchors-1) 
-                              for l in indices[indptr[k]:indptr[k+1]]])
-        else:
-            G.add_edges_from([(k, k+1) for k in range(n_anchors-1)])
-        partition = lambda k, l: self._parent_cell[k] == self._parent_cell[l]
-        self._graph = nx.quotient_graph(G, partition, relabel=True)
-
-        self._kdtree = spatial.cKDTree(anchors)    
-        
+        self._kdtree = scipy.spatial.cKDTree(anchors, boxsize=boxsize)    
         self._cutoff = cutoff
         if np.isfinite(cutoff):
-            self._parent_cell[n_anchors] = None
-    
-    @property
-    def cell_anchor_mapping(self):
-        """Mapping from cells to anchor points."""
-        mapping = dict((i, []) for i in self._graph.nodes)
-        for k, i in self._parent_cell.items():
-            mapping[i] += self._kdtree.data[k]
-        return mapping
-
-    @property
-    def milestones(self):
-        """List of milestones."""
-        return list(frozenset(a) for a in self._graph.edges)
- 
-    def remove_milestone(self, i, j):
-        """Remove the milestone between cells i and j.
-
-        Parameters
-        ----------
-        i, j : int
-            Indices of cells to merge. Cell `j` is merged into cell `i`, 
-            and `j` is removed from the cell index set.
-
-        """
-        if not self._graph.has_edge(i, j):
-            raise ValueError('milestone does not exist; cannot remove it')
-        self._graph = nx.contracted_nodes(self._graph, i, j, self_loops=False)
-        for k in self._parent_cell:
-            if self._parent_cell[k] == j:
-                self._parent_cell[k] = i
-
+            self._parent_cell.append(None)
+     
     def transform(self, trajs, dt=1, forward=False):
         """Map trajectories to milestone schedules.
 
@@ -241,14 +193,6 @@ class TrajectoryDecomposer(deeptime.base.Transformer):
             trajs = [trajs]
         return [self._traj_to_milestone_schedule(traj, dt, forward)
                 for traj in trajs]
-
-    def _is_time_resolved(schedule):
-        """Check whether all transitions are between adjacent cells."""
-        for (a, t) in schedule:
-            if None in a or self._graph.has_edge(*a):
-                continue
-            return False
-        return True
 
     def _traj_to_milestone_schedule(self, traj, dt=1, forward=False):
         _, ktraj = self._kdtree.query(traj, distance_upper_bound=self._cutoff)
@@ -280,7 +224,7 @@ def dtraj_to_milestone_schedule(dtraj, dt=1, forward=False):
         (In fact the milestones are `frozenset`s, which are hashable.)
     
     """
-    if forward_milestoning:
+    if forward:
         dtraj = reversed(dtraj)
     milestones = [frozenset({None, dtraj[0]})]
     lifetimes = [0]
@@ -290,7 +234,7 @@ def dtraj_to_milestone_schedule(dtraj, dt=1, forward=False):
             milestones.append(frozenset({i, j}))
             lifetimes.append(0)
     schedule = list(zip(milestones, lifetimes))
-    if forward_milestoning:
+    if forward:
         return reversed(schedule)
     return schedule
 
