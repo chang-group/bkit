@@ -99,9 +99,10 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
 
         edges = {(i, j) for y in mtrajs for i, j in np.unique(y, axis=0)}
         milestones = sorted({tuple(sorted(e)) for e in edges if -1 not in e})
-        ix = {a: i for i, a in enumerate(milestones)}
-        ix.update((reversed(a), i) for i, a in enumerate(milestones))
         m = len(milestones)
+        
+        ix = {a: i for i, a in enumerate(milestones)}
+        ix.update((tuple(reversed(a)), i) for i, a in enumerate(milestones))
 
         count_matrix = np.zeros((m, m), dtype=int)
         total_times = np.zeros(m)
@@ -109,7 +110,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             lag = 0
             for n in range(1, len(y)):
                 lag += self.dt   
-                if y[n] == y[n-1]:
+                if all(y[n] == y[n-1]):
                     continue
                 a, b = tuple(y[n-1]), tuple(y[n])
                 if a in ix and b in ix:
@@ -118,8 +119,13 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
                 lag = 0
         total_counts = np.sum(count_matrix, axis=1)   
 
+        self.count_matrix_ = count_matrix
+        self.total_times_ = total_times
+        self.milestones_ = milestones
+        self.ix_ = ix
+
         # Maximum likelihood estimation
-        if not n_samples:
+        if not self.n_samples:
             K = estimation.transition_matrix(count_matrix, 
                                              reversible=self.reversible)
             t = total_times / total_counts
