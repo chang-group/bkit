@@ -51,8 +51,9 @@ class ContinuousTimeMarkovModel(deeptime.base.Model):
     @property
     def stationary_distribution(self): 
         """Stationary distribution on the model states."""
-        return (self.embedded_markov_model.stationary_distribution 
-                / self.jump_rates)
+        p = (self.embedded_markov_model.stationary_distribution 
+             / self.jump_rates)
+        return p / sum(p)
 
     @property
     def reversible(self):
