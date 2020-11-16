@@ -44,13 +44,16 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
 
     @property
     def mean_lifetimes(self):
-        """The mean lifetime associated with each milestone.""" 
+        """Mean lifetime associated with each milestone.""" 
         return 1 / self.jump_rates
 
     @property
-    def stationary_flux_distribution(self):
-        """The normalized stationary flux distribution."""
+    def stationary_fluxes(self):
+        """Stationary flux distribution, normalized to 1."""
         return self.embedded_markov_model.stationary_distribution
+
+    def _free_energy(self, kT=1):
+        return -kT * np.log(self.stationary_distribution)
 
 
 class MarkovianMilestoningEstimator(deeptime.base.Estimator):
