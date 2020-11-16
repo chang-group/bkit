@@ -143,7 +143,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         return self
 
 
-class TrajectoryDecomposer(deeptime.base.Transformer):
+class CoarseGrainer(deeptime.base.Transformer):
     """Mapping from space-continuous dynamics to milestoning dynamics."""
 
     def __init__(self, anchors, boxsize=None, cutoff=np.inf):
