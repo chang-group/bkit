@@ -177,7 +177,7 @@ class TrajectoryDecomposer(deeptime.base.Transformer):
             anchors = np.concatenate(anchors)
         self._kdtree = scipy.spatial.cKDTree(anchors, boxsize=boxsize)    
         if np.isfinite(cutoff):
-            self._parent_cell.append(None)
+            self._parent_cell.append(-1)
     
     @property
     def anchors(self):
