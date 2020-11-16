@@ -5,8 +5,6 @@ from deeptime.markov.tools import estimation
 import numpy as np
 import scipy.spatial
 
-BayesianPosterior = deeptime.markov.msm.BayesianPosterior
-
 
 class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
     """Milestoning process governed by a continuous-time Markov chain."""
@@ -50,8 +48,8 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
         return 1 / self.jump_rates
 
     @property
-    def stationary_fluxes(self):
-        """The stationary flux vector."""
+    def stationary_flux_distribution(self):
+        """The normalized stationary flux distribution."""
         return self.embedded_markov_model.stationary_distribution
 
 
@@ -122,9 +120,8 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         self.count_matrix_ = count_matrix
         self.total_times_ = total_times
         self.milestones_ = milestones
-        self.ix_ = ix
 
-        # Maximum likelihood estimation
+        # Maximum likelihood estimate
         if not self.n_samples:
             K = estimation.transition_matrix(count_matrix, 
                                              reversible=self.reversible)
@@ -133,7 +130,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             self._model = MarkovianMilestoningModel(Q, milestones) 
             return self
 
-        # Sampling from posterior distribution 
+        # Sample from posterior distribution 
         Ks = estimation.tmatrix_sampler(count_matrix, 
             reversible=self.reversible).sample(nsamples=self.n_samples)
         vs = np.zeros((self.n_samples, m)) # v = 1/t = vector of jump rates
@@ -142,15 +139,15 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             vs[:, i] = rng.gamma(n, scale=1/r, size=self.n_samples)
         Qs = [K * v[:, np.newaxis] - np.diag(v) for K, v in zip(Ks, vs)]
         samples = [MarkovianMilestoningModel(Q, milestones) for Q in Qs]
-        self._model = BayesianPosterior(samples=samples)
+        self._model = deeptime.markov.msm.BayesianPosterior(samples=samples)
         return self
 
 
-class TrajectoryColoring(deeptime.base.Transformer):
-    """Mapping from original dynamics to milestoning dynamics."""
+class TrajectoryDecomposer(deeptime.base.Transformer):
+    """Mapping from space-continuous dynamics to milestoning dynamics."""
 
     def __init__(self, anchors, boxsize=None, cutoff=np.inf):
-        """Mapping from original dynamics to milestoning dynamics.
+        """Mapping from space-continuous dynamics to milestoning dynamics.
 
         Parameters
         ----------
@@ -228,12 +225,12 @@ class TrajectoryColoring(deeptime.base.Transformer):
  
 
 def _dtraj_to_mtraj(dtraj, forward=False):
-    """'Milestone' a discrete trajectory.
+    """Map cell-based dynamics to milestoning dynamics.
 
     Parameters
     ----------
     dtraj : ndarray(T, dtype=int)
-        A discrete trajectory, e.g., a sequence of cell indices.
+        A discrete trajectory, i.e., a sequence of cell indices.
 
     forward : bool, optional
         If true, track the next milestone hit (forward commitment),
@@ -242,7 +239,7 @@ def _dtraj_to_mtraj(dtraj, forward=False):
     Returns
     -------
     mtraj : ndarray((T, 2), dtype=int)
-        Sequence of milestone labels. For backward milestoning,
+        Sequence of milestone labels. For ordinary (backward) milestoning,
         the first milestone is set to `(-1, dtraj[0])`. For forward
         milestoning, the last milestone is set to `(dtraj[-1], -1)`.
     
