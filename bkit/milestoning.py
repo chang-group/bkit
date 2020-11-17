@@ -81,13 +81,15 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         self.reversible = reversible
         self.n_samples = n_samples
 
-    def fit(self, mtrajs):
-        """Estimate model from trajectories of a milestoning process.
+    def fit(self, schedules):
+        """Estimate model from realizations of a milestoning process.
 
         Parameters
         ----------
-        mtrajs : ndarray (T, 2) or list of ndarray (T_i, 2), dtype=int
-            Time series of milestone labels (pairs of cell indices).
+        schedules : list of tuples or list of lists of tuples
+            Sequences of (milestone, lifetime) pairs obtained by
+            trajectory decomposition. Milestones are pairs of 
+            cell indices. Lifetimes are in units of `self.dt`.
 
         Returns
         -------
@@ -95,31 +97,28 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             Reference to self.
 
         """
-        if type(mtrajs) is np.ndarray:
-            mtrajs = [mtrajs]
+        if type(schedules[0]) is tuple:
+            schedules = [schedules]
 
-        edges = {(i, j) for y in mtrajs for i, j in np.unique(y, axis=0)}
-        milestones = sorted({tuple(sorted(e)) for e in edges if -1 not in e})
-        m = len(milestones)
-        
+        edges = set.union(*({a for a, t in schedule if -1 not in a} 
+                            for schedule in schedules))
+        milestones = sorted({tuple(sorted(a)) for a in edges}) 
         ix = {a: i for i, a in enumerate(milestones)}
         ix.update((tuple(reversed(a)), i) for i, a in enumerate(milestones))
+        m = len(milestones)
 
         count_matrix = np.zeros((m, m), dtype=int)
         total_times = np.zeros(m)
-        for y in mtrajs:
-            lag = 0
-            for n in range(1, len(y)):
-                lag += self.dt   
-                if all(y[n] == y[n-1]):
-                    continue
-                a, b = tuple(y[n-1]), tuple(y[n])
-                if a in ix and b in ix:
+        for schedule in schedules:
+            a, t = schedule[0]
+            for b, s in schedule[1:]:
+                if a in edges and b in edges:
                     count_matrix[ix[a], ix[b]] += 1
-                    total_times[ix[a]] += lag
-                lag = 0
-        total_counts = np.sum(count_matrix, axis=1)   
-
+                    total_times[ix[a]] += t
+                a, t = b, s
+        total_counts = np.sum(count_matrix, axis=1)
+        total_times *= self.dt
+                
         self.count_matrix_ = count_matrix
         self.total_times_ = total_times
         self.milestones_ = milestones
@@ -136,7 +135,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         # Sample from posterior distribution 
         Ks = estimation.tmatrix_sampler(count_matrix, 
             reversible=self.reversible).sample(nsamples=self.n_samples)
-        vs = np.zeros((self.n_samples, m)) # v = 1/t = vector of jump rates
+        vs = np.zeros((self.n_samples, m)) # v = 1/t = jump rates
         for i, (n, r) in enumerate(zip(total_counts, total_times)):
             rng = np.random.default_rng()
             vs[:, i] = rng.gamma(n, scale=1/r, size=self.n_samples)
@@ -173,14 +172,14 @@ class CoarseGrainer(deeptime.base.Transformer):
         self._cutoff = cutoff
 
         if type(anchors) is np.ndarray:
-            self._parent_cell = list(range(len(anchors)))
+            parent_cell = list(range(len(anchors)))
         else:
-            self._parent_cell = [i for i, arr in enumerate(anchors) 
-                                   for k in range(len(arr))]
+            parent_cell = [i for i, a in enumerate(anchors) for x in a]
             anchors = np.concatenate(anchors)
-        self._kdtree = scipy.spatial.cKDTree(anchors, boxsize=boxsize)    
         if np.isfinite(cutoff):
-            self._parent_cell.append(-1)
+            parent_cell.append(-1)
+        self._parent_cell = np.asarray(parent_cell, dtype=int)
+        self._kdtree = scipy.spatial.cKDTree(anchors, boxsize=boxsize)    
     
     @property
     def anchors(self):
@@ -198,7 +197,7 @@ class CoarseGrainer(deeptime.base.Transformer):
         return self._cutoff
 
     def transform(self, trajs, forward=False):
-        """Map original dynamics to milestoning index process.
+        """Map space-continuous dynamics to milestoning dynamics.
 
         Parameters
         ----------
@@ -211,23 +210,29 @@ class CoarseGrainer(deeptime.base.Transformer):
     
         Returns
         -------
-        mtrajs : ndarray (T, 2) or list of ndarray (T_i, 2), dtype=int
-            Time series of milestone labels (pairs of cell indices).
+        schedules : list of tuples or list of lists of tuples
+            Sequences of (milestone, lifetime) pairs obtained by
+            trajectory decomposition. Milestones are pairs (2-tuples) 
+            of cell indices, with (i, j) and (j, i) identified as the
+            same milestone. Lifetimes are in units of the sampling 
+            interval of the trajectory data.
 
         """ 
         if type(trajs) is np.ndarray:
-            return self._traj_to_mtraj(trajs, forward=forward)
-        return [self._traj_to_mtraj(traj, forward=forward) for traj in trajs]
+            return self._traj_to_milestone_schedule(trajs, forward)
+        return [self._traj_to_milestone_schedule(traj, forward)
+                for traj in trajs]
 
-    def _traj_to_mtraj(self, traj, forward=False):
-        return _dtraj_to_mtraj(self._traj_to_dtraj(traj), forward=forward)
+    def _traj_to_milestone_schedule(self, traj, forward=False):
+        dtraj = self._assign_cells(traj)
+        return dtraj_to_milestone_schedule(dtraj, forward)
     
-    def _traj_to_dtraj(self, traj):
-        _, ktraj = self._kdtree.query(traj, distance_upper_bound=self._cutoff)
-        return np.fromiter((self._parent_cell[k] for k in ktraj), dtype=int)
+    def _assign_cells(self, x):
+        _, k = self._kdtree.query(x, distance_upper_bound=self._cutoff)
+        return self._parent_cell[k]
  
 
-def _dtraj_to_mtraj(dtraj, forward=False):
+def dtraj_to_milestone_schedule(dtraj, forward=False):
     """Map cell-based dynamics to milestoning dynamics.
 
     Parameters
@@ -241,23 +246,26 @@ def _dtraj_to_mtraj(dtraj, forward=False):
 
     Returns
     -------
-    mtraj : ndarray((T, 2), dtype=int)
-        Sequence of milestone labels. For ordinary (backward) milestoning,
-        the first milestone is set to `(-1, dtraj[0])`. For forward
-        milestoning, the last milestone is set to `(dtraj[-1], -1)`.
-    
+    schedule : list of tuples
+        Sequence of (milestone, lifetime) pairs. Milestones are 
+        pairs (2-tuples) of cell indices. For ordinary milestoning, 
+        the first milestone is set to `(-1, dtraj[0])`. For forward 
+        milestoning, the last milestone is set to `(dtraj[-1], -1)`. 
+        Lifetimes are in units of the time step of `dtraj`.
+ 
     """
-    mtraj = np.zeros((len(dtraj), 2), dtype=int)
+    dtraj_it = reversed(dtraj) if forward else iter(dtraj)
+    i = next(dtraj_it)
+    milestones = [(-1, i)]
+    lifetimes = [0]
+    for j in dtraj_it:
+        lifetimes[-1] += 1
+        if j not in milestones[-1]:
+            milestones.append((i, j))
+            lifetimes.append(0)
+        i = j
     if forward:
-        mtraj[-1] = dtraj[-1], -1
-        start, stop, step = len(dtraj)-2, -1, -1
-    else:
-        mtraj[0] = -1, dtraj[0]
-        start, stop, step = 1, len(dtraj), 1
-    for n in range(start, stop, step):
-        if dtraj[n] in mtraj[n-step]:
-            mtraj[n] = mtraj[n-step]
-        else:
-            mtraj[n] = dtraj[n-step], dtraj[n]
-    return mtraj
-
+        return list(zip((tuple(reversed(a)) for a in reversed(milestones)),
+                        reversed(lifetimes))) 
+    return list(zip(milestones, lifetimes))
+ 
