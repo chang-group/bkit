@@ -43,8 +43,8 @@ def path_input_plot(data, naverage=100, cmap='Blues', cbar_label='frame index'):
         path = np.asarray(path)
         plt.plot(path[:, 0], path[:, 1], color='tab:red')
     
-    line, = plt.plot([], [], marker='o', markerfacecolor='lawngreen', markeredgewidth=1,
-                    color='k', linewidth=1, zorder=10)
+    line, = plt.plot([], [], marker='o', markerfacecolor='lawngreen', 
+                     markeredgewidth=1, color='k', linewidth=1, zorder=10)
     linebuilder = LineBuilder(line)
     
     return fig, linebuilder.xs, linebuilder.ys

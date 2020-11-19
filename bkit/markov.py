@@ -120,6 +120,7 @@ def embedded_transition_matrix(rate_matrix):
     np.fill_diagonal(P, 0)
     return P
 
+
 def rate_matrix(transition_matrix, jump_rates):
     """Rate matrix from given transition matrix and jump rates.
 

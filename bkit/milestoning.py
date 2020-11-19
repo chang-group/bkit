@@ -81,7 +81,7 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
 class MarkovianMilestoningEstimator(deeptime.base.Estimator):
     """Estimator for Markovian milestoning models."""
 
-    def __init__(self, reversible=True, dt=1):
+    def __init__(self, reversible=True, dt_obs=1):
         """Estimator for Markovian milestoning models.
 
         Parameters
@@ -90,13 +90,13 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             If True, restrict the ensemble of transition matrices
             to those satisfying detailed balance.
 
-        dt : float, optional
-            Trajectory sampling interval, positive (>0).
+        dt_obs : float, optional
+            Observation interval (time resolution) of MD data.
             
         """
         super().__init__()
         self._reversible = reversible
-        self._dt = dt
+        self._dt_obs = dt_obs
 
     @property
     def reversible(self):
@@ -104,9 +104,9 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         return self._reversible
 
     @property
-    def dt(self):
-        """Time interval at which trajectories were sampled."""
-        return self._dt
+    def dt_obs(self):
+        """Observation interval."""
+        return self._dt_obs
 
     def fetch_model(self):
         """Return the maximum likelihood model.
@@ -127,7 +127,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         data : list of tuples, list of lists of tuples, or dict
             Milestone schedules, i.e., lists of (milestone, lifetime) pairs,
             or a mapping from ordered pairs of milestones to lists of
-            lag times. Times are assumed to be in units of `self.dt`.
+            lag times. Times are assumed to be in units of `self.dt_obs`.
 
         Returns
         -------
@@ -146,10 +146,10 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         ----------
         schedules : list of tuples or list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
-            trajectory decomposition. It is assumed that milestones 
-            are `frozenset`s of cell indices and that lifetimes are 
-            in units of `self.dt`. Transitions to/from milestones 
-            with unassigned cells (index -1) are ignored.
+            trajectory decomposition. Milestones are assumed to be 
+            `frozenset`s of cell indices; lifetimes are assumed to 
+            be in units of `self.dt_obs`. Transitions to or from 
+            milestones with unassigned cells (index -1) are ignored.
 
         Returns
         -------
@@ -177,7 +177,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
             Map from ordered pairs of milestones to lists of lag times:
             `lagtimes[a, b]` are the lag times for transitions from 
             source milestone `a` to target milestone `b`. Times are 
-            assumed to be in units of the sampling interval `self.dt`.
+            assumed to be in units of `self.dt_obs`.
 
         Returns
         -------
@@ -195,7 +195,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         for (a, b), ts in lagtimes.items():
             count_matrix[ix[a], ix[b]] = len(ts)
             total_times[ix[a]] += sum(ts)
-        total_times *= self.dt
+        total_times *= self.dt_obs
 
         K = estimation.transition_matrix(count_matrix, 
                                          reversible=self.reversible)
@@ -290,30 +290,30 @@ class CoarseGrainer(deeptime.base.Transformer):
         return self._cutoff
 
     def transform(self, trajs, forward=False):
-    """Map space-continuous dynamics to milestoning dynamics.
+        """Map space-continuous dynamics to milestoning dynamics.
 
-    Parameters
-    ----------
-    trajs : ndarray (T, d) or list of ndarray (T_i, d)
-        Trajectories to be decomposed.
+        Parameters
+        ----------
+        trajs : ndarray (T, d) or list of ndarray (T_i, d)
+            Trajectories to be decomposed.
 
-    forward : bool, optional
-        If true, track the next milestone hit (forward commitment),
-        rather than the last milestone hit (backward commitment).
+        forward : bool, optional
+            If true, track the next milestone hit (forward commitment),
+            rather than the last milestone hit (backward commitment).
 
-    Returns
-    -------
-    schedules : list of tuples or list of lists of tuples
-        Sequences of (milestone, lifetime) pairs obtained by
-        trajectory decomposition. Milestones are `frozenset`s
-        of cell indices. Lifetimes are in units of the sampling 
-        interval of the trajectory data.
+        Returns
+        -------
+        schedules : list of tuples or list of lists of tuples
+            Sequences of (milestone, lifetime) pairs obtained by
+            trajectory decomposition. Milestones are `frozenset`s
+            of cell indices. Lifetimes are in units of the sampling 
+            interval of the trajectory data.
 
-    """ 
-    if type(trajs) is np.ndarray:
-        return self._traj_to_milestone_schedule(trajs, forward)
-    return [self._traj_to_milestone_schedule(traj, forward)
-            for traj in trajs]
+        """ 
+        if type(trajs) is np.ndarray:
+            return self._traj_to_milestone_schedule(trajs, forward)
+        return [self._traj_to_milestone_schedule(traj, forward)
+                for traj in trajs]
 
     def _traj_to_milestone_schedule(self, traj, forward=False):
         dtraj = self._assign_cells(traj)
