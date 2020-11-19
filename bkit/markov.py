@@ -89,8 +89,8 @@ class ContinuousTimeMarkovModel(deeptime.base.Model):
 
         Returns
         -------
-        submodel : ContinuousTimeMarkovChain
-            Markov model restricted to given states.
+        submodel : ContinuousTimeMarkovModel
+            Markov model restricted to the given states.
 
         """        
         P = self.embedded_markov_model.transition_matrix
