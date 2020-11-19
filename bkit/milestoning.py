@@ -11,7 +11,7 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
     """Milestoning process governed by a continuous-time Markov chain."""
 
     def __init__(self, rate_matrix, milestones=None):
-        """Milestoning model with given rate matrix and set of milestones.
+        """Milestoning model with given rate matrix.
 
         Parameters
         ----------
@@ -28,7 +28,7 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
 
     @property
     def milestones(self):
-        """The milestones in indexed order."""
+        """Milestone labels in indexed order."""
         return self._milestones
 
     @milestones.setter
@@ -200,7 +200,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         K = estimation.transition_matrix(count_matrix, 
                                          reversible=self.reversible)
         v = count_matrix.sum(axis=1) / total_times
-        Q = K * v[:, np.newaxis] - np.diag(v)
+        Q = bkit.markov.rate_matrix(K, v)
 
         self._model = MarkovianMilestoningModel(Q, milestones) 
         self._lagtimes = lagtimes
@@ -233,7 +233,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
                                        self._total_times)):
             rng = np.random.default_rng()
             vs[:, i] = rng.gamma(n, scale=1/r, size=n_samples)
-        Qs = [K * v[:, np.newaxis] - np.diag(v) for K, v in zip(Ks, vs)]
+        Qs = [bkit.markov.rate_matrix(K, v) for K, v in zip(Ks, vs)]
         samples = [MarkovianMilestoningModel(Q, milestones) for Q in Qs]
         return BayesianPosterior(samples=samples)
 
