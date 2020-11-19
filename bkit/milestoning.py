@@ -10,7 +10,7 @@ import scipy.spatial
 class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
     """Milestoning process governed by a continuous-time Markov chain."""
 
-    def __init__(self, rate_matrix, milestones):
+    def __init__(self, rate_matrix, milestones=None):
         """Milestoning model with given rate matrix and set of milestones.
 
         Parameters
@@ -18,9 +18,9 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
         rate_matrix : (M, M) ndarray
             Transition rate matrix, row infinitesimal stochastic.
 
-        milestones : array_like
-            Ordered set of milestone labels indexed by the states 
-            of the underlying Markov model. 
+        milestones : array_like, optional
+            Ordered set of milestone labels. It is assumed that labels
+            are hashable.
            
         """
         super().__init__(rate_matrix)
@@ -33,6 +33,9 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
 
     @milestones.setter
     def milestones(self, value):
+        if value is None:
+            self._milestones = list(range(self.n_states))
+            return
         if len(value) != self.n_states:
             msg = 'number of milestones must match dimension of rate matrix'
             raise ValueError(msg)
@@ -143,10 +146,10 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         ----------
         schedules : list of tuples or list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
-            trajectory decomposition. Milestones are `frozenset`s 
-            of cell indices. Lifetimes are in units of `self.dt`.
-            Transitions to/from milestones with unassigned cells
-            (index -1) are ignored.
+            trajectory decomposition. It is assumed that milestones 
+            are `frozenset`s of cell indices and that lifetimes are 
+            in units of `self.dt`. Transitions to/from milestones 
+            with unassigned cells (index -1) are ignored.
 
         Returns
         -------
@@ -173,8 +176,8 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         lagtimes : dict
             Map from ordered pairs of milestones to lists of lag times:
             `lagtimes[a, b]` are the lag times for transitions from 
-            source milestone `a` to target milestone `b`. Times are in 
-            units of the sampling interval `self.dt`.
+            source milestone `a` to target milestone `b`. Times are 
+            assumed to be in units of the sampling interval `self.dt`.
 
         Returns
         -------
@@ -209,11 +212,9 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
     def sample_posterior(self, n_samples=100):
         """Sample models from the posterior distribution.
 
-        (The estimator should be fit before calling this method.)
-
         Parameters
         ----------
-        n_samples : int
+        n_samples : int, optional
             Number of samples to draw.
 
         Returns
