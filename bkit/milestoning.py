@@ -79,7 +79,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
 
     @property
     def reversible(self):
-        """Whether to perform reversible estimation."""
+        """If True, perform reversible estimation."""
         return self._reversible
 
     @property
@@ -119,7 +119,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         return self.fit_from_lagtimes(data)
 
     def fit_from_schedules(self, schedules):
-        """Fit maximum likelihood model from schedule data.
+        """Fit maximum likelihood model to milestone schedule data.
 
         Parameters
         ----------
@@ -174,6 +174,7 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
         for (a, b), ts in lagtimes.items():
             count_matrix[ix[a], ix[b]] = len(ts)
             total_times[ix[a]] += sum(ts)
+        total_times *= self.dt
 
         K = estimation.transition_matrix(count_matrix, 
                                          reversible=self.reversible)
@@ -189,6 +190,8 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
 
     def sample_posterior(self, n_samples=100):
         """Sample models from the posterior distribution.
+
+        (The estimator should be fit before calling this method.)
 
         Parameters
         ----------
