@@ -53,8 +53,26 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
         """Stationary flux distribution, normalized to 1."""
         return self.embedded_markov_model.stationary_distribution
 
-    def _free_energy(self, kT=1):
-        return -kT * np.log(self.stationary_distribution)
+    @property
+    def stationary_populations(self):
+        """Stationary population distribution, normalized to 1."""
+        return self.stationary_distribution
+
+    def free_energies(self, kT=1):
+        """Free energies of the milestone states in given units.
+    
+        Parameters
+        ----------
+        kT : float, optional
+            Energy scale factor.
+
+        Returns
+        -------
+        f : (M,) ndarray
+            Free energies of the milestone states.
+
+        """
+        return -kT * np.log(self.stationary_populations)
 
 
 class MarkovianMilestoningEstimator(deeptime.base.Estimator):
