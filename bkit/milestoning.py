@@ -1,67 +1,61 @@
 import bkit.markov
 import collections
 import deeptime.base
-from deeptime.markov.msm import BayesianPosterior
-from deeptime.markov.tools import estimation
+import msmtools.estimation as estimation
 import numpy as np
 import scipy.spatial
+from deeptime.markov.msm import BayesianPosterior
 
 
-class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
+class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovChain):
     """Milestoning process governed by a continuous-time Markov chain."""
 
-    def __init__(self, rate_matrix, milestones=None):
-        """Milestoning model with given rate matrix.
+    def __init__(self, transition_kernel, mean_lifetimes, milestones=None):
+        """Create a new MarkovianMilestoningModel.
 
         Parameters
         ----------
-        rate_matrix : (M, M) ndarray
-            Transition rate matrix, row infinitesimal stochastic.
+        transition_kernel : (M, M) array_like
+            Transition probability kernel. Must be a row stochastic 
+            matrix with all diagonal elements equal to zero.
 
-        milestones : array_like, optional
-            Ordered set of milestone labels. It is assumed that labels
-            are hashable.
+        mean_lifetimes : (M,) array_like
+            Average milestone lifetimes, positive (>0).
+
+        milestones : (M,) array_like, optional
+            Milestone labels, assumed to be hashable. Will default to 
+            np.arange(M) if not provided.            
            
         """
-        super().__init__(rate_matrix)
-        self.milestones = milestones
+        super().__init__(transition_kernel, 1/mean_lifetimes, milestones)
 
     @property
     def milestones(self):
         """Milestone labels in indexed order."""
-        return self._milestones
+        return self.states
 
-    @milestones.setter
-    def milestones(self, value):
-        if value is None:
-            self._milestones = list(range(self.n_states))
-            return
-        if len(value) != self.n_states:
-            msg = 'number of milestones must match dimension of rate matrix'
-            raise ValueError(msg)
-        self._milestones = value
+    @property
+    def index_by_milestone(self):
+        """Dictionary mapping milestone labels to indices."""
+        return self.index_by_state
 
     @property
     def transition_kernel(self):
-        """Transition probability kernel of the embedded Markov chain."""
-        return self.embedded_markov_model.transition_matrix
+        """Transition probability kernel."""
+        return self.embedded_tmatrix
 
     @property
     def mean_lifetimes(self):
         """Mean lifetime associated with each milestone.""" 
-        return 1 / self.jump_rates
+        return 1/self.jump_rates
 
     @property
-    def stationary_fluxes(self):
+    def stationary_flux(self):
         """Stationary flux distribution, normalized to 1."""
-        return self.embedded_markov_model.stationary_distribution
+        q = self.stationary_distribution * self.jump_rates
+        return q / q.sum()
 
-    @property
-    def stationary_populations(self):
-        """Stationary population distribution, normalized to 1."""
-        return self.stationary_distribution
-
-    def free_energies(self, kT=1):
+    def free_energy(self, kT=1):
         """Free energies of the milestone states in given units.
     
         Parameters
@@ -71,11 +65,11 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovModel):
 
         Returns
         -------
-        f : (M,) ndarray
+        (M,) ndarray
             Free energies of the milestone states.
 
         """
-        return -kT * np.log(self.stationary_populations)
+        return -kT * np.log(self.stationary_distribution)
 
 
 class MarkovianMilestoningEstimator(deeptime.base.Estimator):
@@ -199,10 +193,9 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
 
         K = estimation.transition_matrix(count_matrix, 
                                          reversible=self.reversible)
-        v = count_matrix.sum(axis=1) / total_times
-        Q = bkit.markov.rate_matrix(K, v)
+        t = total_times / count_matrix.sum(axis=1)
 
-        self._model = MarkovianMilestoningModel(Q, milestones) 
+        self._model = MarkovianMilestoningModel(K, t, milestones) 
         self._lagtimes = lagtimes
         self._count_matrix = count_matrix
         self._total_times = total_times
@@ -233,8 +226,8 @@ class MarkovianMilestoningEstimator(deeptime.base.Estimator):
                                        self._total_times)):
             rng = np.random.default_rng()
             vs[:, i] = rng.gamma(n, scale=1/r, size=n_samples)
-        Qs = [bkit.markov.rate_matrix(K, v) for K, v in zip(Ks, vs)]
-        samples = [MarkovianMilestoningModel(Q, milestones) for Q in Qs]
+        samples = [MarkovianMilestoningModel(K, 1/v, milestones) 
+                   for K, v in zip(Ks, vs)]
         return BayesianPosterior(samples=samples)
 
 
