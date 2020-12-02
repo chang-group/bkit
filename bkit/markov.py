@@ -1,69 +1,110 @@
 import numpy as np
-import deeptime.base
-import deeptime.markov.msm as msm
-import deeptime.markov.tools.analysis as msmana
+import msmtools.analysis as msmana
 
 
-class ContinuousTimeMarkovModel(deeptime.base.Model):
-    """Continuous-time Markov model (i.e., Markov jump process)."""
+class ContinuousTimeMarkovChain:
+    """A continuous-time Markov chain (i.e., Markov jump process)."""
 
-    def __init__(self, rate_matrix):
-        """Continuous-time Markov model with a given rate matrix.
+    def __init__(self, embedded_tmatrix, jump_rates, states=None):
+        """Create a new ContinuousTimeMarkovChain.
 
         Parameters
         ----------
-        rate_matrix : (M, M) ndarray
-            Transition rate matrix, row infinitesimal stochastic.
+        embedded_tmatrix : (M, M) array_like
+            Transition matrix of the embedded discrete-time Markov
+            chain. Must be row stochastic with diagonal elements
+            all equal to zero.
 
+        jump_rates: (M,) array_like
+            Exponential rate parameters, positive (>0).
+
+        states : (M,) array_like, optional
+            State labels. Will default to np.arange(M) if no labels 
+            are provided.
+            
         """
-        self.rate_matrix = rate_matrix
+        self.embedded_tmatrix = embedded_tmatrix
+        self.jump_rates = jump_rates
+        self.states = states
 
     @property
-    def rate_matrix(self):
-        """Rate matrix (infinitesimal generator)."""
-        return self._rate_matrix
+    def embedded_tmatrix(self):
+        return self._embedded_tmatrix
 
-    @rate_matrix.setter
-    def rate_matrix(self, value):
-        if not msmana.is_rate_matrix(value):
-            raise ValueError('matrix must be row infinitesimal stochastic')
-        self._rate_matrix = np.asarray(value)
-        P = embedded_transition_matrix(self.rate_matrix)
-        self._embedded_markov_model = msm.MarkovStateModel(P)
-
-    @property
-    def embedded_markov_model(self):
-        """Embedded discrete-time Markov model."""
-        return self._embedded_markov_model
-
-    @property
-    def n_states(self):
-        """Number of states in the model."""
-        return self.embedded_markov_model.n_states
+    @embedded_tmatrix.setter
+    def embedded_tmatrix(self, value):
+        value = np.asarray(value)
+        if not msmana.is_tmatrix(value):
+            raise ValueError('matrix must be row stochastic')
+        if np.count_nonzero(value.diagonal()):
+            raise ValueError('diagonal elements must be equal to zero')
+        self._embedded_tmatrix = value
 
     @property
     def jump_rates(self):
-        """Exponential rate parameter associated with each state."""
-        return -np.diag(self.rate_matrix)
+        return self._jump_rates
+
+    @jump_rates.setter
+    def jump_rates(self, value):
+        value = np.asarray(value)
+        if value.shape != (self.embedded_tmatrix.shape[0],):
+            msg = 'number of jump rates must match dimension of rate matrix'
+            raise ValueError(msg)
+        if not (value > 0).all():
+            raise ValueError('jump rates must be positive')
+        self._jump_rates = value
+
+    @property
+    def rate_matrix(self):
+        """Transition rate matrix (infinitesimal generator)."""
+        return (self.embedded_tmatrix * self.jump_rates[:, np.newaxis]
+                - np.diag(self.jump_rates))
 
     @property
     def stationary_distribution(self): 
-        """Stationary distribution on the model states."""
-        p = (self.embedded_markov_model.stationary_distribution 
+        """Stationary population distribution, normalized to 1."""
+        p = (msmana.stationary_distribution(self.embedded_tmatrix) 
              / self.jump_rates)
         return p / p.sum()
 
     @property
-    def reversible(self):
+    def is_reversible(self):
         """Whether the Markov chain is reversible."""
-        return self.embedded_markov_model.reversible
+        return msmana.is_reversible(self.embedded_tmatrix)
+    
+    @property
+    def states(self):
+        """State labels."""
+        return self._states
+
+    @states.setter
+    def states(self, value):
+        if value is None:
+            self._states = np.arange(self.rate_matrix.shape[0])
+            return
+        value = np.asarray(value)
+        if value.shape != (self.rate_matrix.shape[0],):
+            msg = 'number of states must match dimension of rate matrix'
+            raise ValueError(msg)
+        self._states = value
+        self._index_by_state = {x: i for i, x in enumerate(value)}
+
+    @property
+    def n_states(self):
+        """Number of states."""
+        return len(self.states)
+
+    @property
+    def index_by_state(self):
+        """Dictionary mapping state labels to corresponding indices."""
+        return self._index_by_state 
 
     def mfpt(self, target):
         """Mean first passage times to a target set of states.
 
         Parameters
         ----------
-        target : int or array_like of int
+        target_indices : int or array_like of int
             Indices of the target states.
 
         Returns
@@ -78,68 +119,4 @@ class ContinuousTimeMarkovModel(deeptime.base.Model):
         mfpt = np.zeros(self.n_states)
         mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
         return mfpt
-
-    def submodel(self, states):
-        """Model restricted to a given subset of states.
-
-        Parameters
-        ----------
-        states : array_like of int
-            Indices of states included in submodel.
-
-        Returns
-        -------
-        submodel : ContinuousTimeMarkovModel
-            Markov model restricted to the given states.
-
-        """        
-        P = self.embedded_markov_model.transition_matrix
-        P = P[states, :][:, states]
-        P /= P.sum(axis=1)[:, np.newaxis]
-        Q = rate_matrix(P, self.jump_rates[states])
-        return ContinuousTimeMarkovModel(Q)
-
-
-def embedded_transition_matrix(rate_matrix):
-    """Embedded transition matrix of given rate matrix.
-
-    Parameters
-    ----------
-    rate_matrix : (M, M) ndarray
-        Transition rate matrix, row infinitesimal stochastic.
-
-    Returns
-    -------
-    transition_matrix : (M, M) ndarray
-        Transition probability matrix, row stochastic.
-
-    """
-    if not msmana.is_rate_matrix(rate_matrix):
-        raise ValueError('matrix must be row infinitesimal stochastic')
-    P = -rate_matrix / np.diag(rate_matrix)[:, np.newaxis]
-    np.fill_diagonal(P, 0)
-    return P
-
-
-def rate_matrix(transition_matrix, jump_rates):
-    """Rate matrix from given transition matrix and jump rates.
-
-    Returns
-    -------
-    transition_matrix : (M, M) ndarray
-        Transition probability matrix, row stochastic.
-
-    jump_rates : (M,) ndarray
-        Exponential rate parameters.    
-
-    Returns
-    -------
-    rate_matrix : (M, M) ndarray
-        Transition rate matrix, row infinitesimal stochastic.
-
-    """
-    if not msmana.is_transition_matrix(transition_matrix):
-        raise ValueError('matrix must be row stochastic')
-    return (transition_matrix * jump_rates[:, np.newaxis] 
-            - np.diag(jump_rates))
 
