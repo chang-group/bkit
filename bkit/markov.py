@@ -19,8 +19,8 @@ class ContinuousTimeMarkovChain:
             Exponential rate parameters, positive (>0).
 
         states : (M,) array_like, optional
-            State labels. Will default to np.arange(M) if no labels 
-            are provided.
+            State labels, assumed to be hashable. Will default to 
+            np.arange(M) if no labels are provided.
             
         """
         self.embedded_tmatrix = embedded_tmatrix
@@ -99,7 +99,7 @@ class ContinuousTimeMarkovChain:
         """Dictionary mapping state labels to corresponding indices."""
         return self._index_by_state 
 
-    def mfpt(self, target):
+    def mfpt(self, target_indices):
         """Mean first passage times to a target set of states.
 
         Parameters
@@ -109,12 +109,12 @@ class ContinuousTimeMarkovChain:
 
         Returns
         -------
-        mfpt : (M,) ndarray
+        (M,) ndarray
             Mean first passage time from each state to the target set.
 
         """
         is_source = np.ones(self.n_states, dtype=bool)
-        is_source[target] = False
+        is_source[target_indices] = False
         Q = self.rate_matrix[is_source, :][:, is_source]
         mfpt = np.zeros(self.n_states)
         mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
