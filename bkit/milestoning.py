@@ -1,12 +1,12 @@
-import bkit.markov
 import collections
 import msmtools.estimation as estimation
 import msmtools.util.types
 import numpy as np
 import scipy.spatial
+from bkit.markov import ContinuousTimeMarkovChain
 
 
-class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovChain):
+class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
     """Milestoning process governed by a continuous-time Markov chain."""
 
     def __init__(self, transition_kernel, mean_lifetimes, milestones=None):
@@ -40,7 +40,7 @@ class MarkovianMilestoningModel(bkit.markov.ContinuousTimeMarkovChain):
 
     @property
     def index_by_milestone(self):
-        """Dictionary mapping milestone labels to indices."""
+        """Dictionary mapping each milestone label to its index."""
         return self.index_by_state
 
     @property
@@ -114,14 +114,7 @@ class MarkovianMilestoningEstimator:
 
     @property
     def maximum_likelihood_model(self):
-        """Return the maximum likelihood model.
-
-        Returns
-        -------
-        model : MarkovianMilestoningModel
-            Model obtained by maximum likelihood estimation.
-        
-        """
+        """The maximum likelihood MarkovianMilestoningModel."""
         return self._model
 
     def fit(self, data):

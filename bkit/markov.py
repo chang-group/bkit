@@ -46,9 +46,8 @@ class ContinuousTimeMarkovChain:
 
     @jump_rates.setter
     def jump_rates(self, value):
-        value = np.asarray(value)
         if value.shape != (self.embedded_tmatrix.shape[0],):
-            msg = 'number of jump rates must match dimension of rate matrix'
+            msg = 'number of jump rates must match number of states'
             raise ValueError(msg)
         if not (value > 0).all():
             raise ValueError('jump rates must be positive')
@@ -57,8 +56,9 @@ class ContinuousTimeMarkovChain:
     @property
     def rate_matrix(self):
         """Transition rate matrix (infinitesimal generator)."""
-        return (self.embedded_tmatrix * self.jump_rates[:, np.newaxis]
-                - np.diag(self.jump_rates))
+        Q = self.jump_rates[:, np.newaxis] * self.embedded_tmatrix
+        Q[np.diag_indices(self.n_states)] = -self.jump_rates
+        return Q
 
     @property
     def stationary_distribution(self): 
@@ -80,11 +80,11 @@ class ContinuousTimeMarkovChain:
     @states.setter
     def states(self, value):
         if value is None:
-            self._states = np.arange(self.rate_matrix.shape[0])
+            self._states = np.arange(self.embedded_tmatrix.shape[0])
             return
         value = np.asarray(value)
-        if value.shape != (self.rate_matrix.shape[0],):
-            msg = 'number of states must match dimension of rate matrix'
+        if value.shape != (self.embedded_tmatrix.shape[0],):
+            msg = 'number of labels must match number of states'
             raise ValueError(msg)
         self._states = value
         self._index_by_state = {x: i for i, x in enumerate(value)}
@@ -96,7 +96,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def index_by_state(self):
-        """Dictionary mapping state labels to corresponding indices."""
+        """Dictionary mapping each state label to its index."""
         return self._index_by_state 
 
     def mfpt(self, target_indices):
