@@ -15,7 +15,6 @@ setup(
     ],
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     python_requires='>=3.6',
-    install_requires=['numpy', 'scipy', 'pyemma', 'deeptime', 'networkx', 
-                      'mdtraj', 'matplotlib']
+    install_requires=['numpy', 'scipy', 'msmtools', 'matplotlib']
 )
 
