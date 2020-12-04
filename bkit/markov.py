@@ -56,9 +56,9 @@ class ContinuousTimeMarkovChain:
     @property
     def rate_matrix(self):
         """Transition rate matrix (infinitesimal generator)."""
-        Q = self.jump_rates[:, np.newaxis] * self.embedded_tmatrix
-        Q[np.diag_indices(self.n_states)] = -self.jump_rates
-        return Q
+        rate_matrix = self.jump_rates[:, np.newaxis] * self.embedded_tmatrix
+        rate_matrix[np.diag_indices(self.n_states)] = -self.jump_rates
+        return rate_matrix
 
     @property
     def stationary_distribution(self): 
@@ -87,7 +87,7 @@ class ContinuousTimeMarkovChain:
             msg = 'number of labels must match number of states'
             raise ValueError(msg)
         self._states = value
-        self._index_by_state = {x: i for i, x in enumerate(value)}
+        self._state_to_index = {x: i for i, x in enumerate(value)}
 
     @property
     def n_states(self):
@@ -95,9 +95,9 @@ class ContinuousTimeMarkovChain:
         return len(self.states)
 
     @property
-    def index_by_state(self):
-        """Dictionary mapping each state label to its index."""
-        return self._index_by_state 
+    def state_to_index(self):
+        """A dictionary mapping each state label to its index."""
+        return self._state_to_index 
 
     def mfpt(self, target_indices):
         """Mean first passage times to a target set of states.

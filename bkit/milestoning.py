@@ -39,9 +39,9 @@ class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
         return self.n_states
 
     @property
-    def index_by_milestone(self):
-        """Dictionary mapping each milestone label to its index."""
-        return self.index_by_state
+    def milestone_to_index(self):
+        """A dictionary mapping each milestone label to its index."""
+        return self.state_to_index
 
     @property
     def transition_kernel(self):
