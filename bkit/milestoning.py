@@ -192,15 +192,18 @@ class MarkovianMilestoningEstimator:
         for (a, b), times in lagtimes.items():
             count_matrix[ix[a], ix[b]] = len(times)
             total_times[ix[a]] += sum(times)
-        total_times *= self.dt
+        total_counts = count_matrix.sum(axis=1)
+        
+        total_times *= self.dt  # should this be done here?
  
-        K = estimation.transition_matrix(count_matrix, 
-                                         reversible=self.reversible)
-        np.fill_diagonal(K, 0)
-        t = total_times / count_matrix.sum(axis=1)
-
         self._count_matrix = count_matrix
         self._total_times = total_times
+        self._total_counts = total_counts
+
+        K = estimation.transition_matrix(
+            count_matrix, reversible=self.reversible)
+        np.fill_diagonal(K, 0)
+        t = total_times / total_counts
         self._model = MarkovianMilestoningModel(K, t, milestones)
 
         return self
@@ -222,15 +225,16 @@ class MarkovianMilestoningEstimator:
         if self._model is None:
             return None
 
-        Ks = estimation.tmatrix_sampler(self._count_matrix, 
-            reversible=self.reversible).sample(nsamples=n_samples)
+        sampler = estimation.tmatrix_sampler(
+            self._count_matrix, reversible=self.reversible,
+            T0=self._model.transition_kernel)
+        Ks = sampler.sample(nsamples=n_samples)
         for K in Ks:
             np.fill_diagonal(K, 0)
 
+        rng = np.random.default_rng()
         vs = np.zeros((n_samples, self._model.n_states))
-        for i, (n, r) in enumerate(zip(self._count_matrix.sum(axis=1), 
-                                       self._total_times)):
-            rng = np.random.default_rng()
+        for i, (n, r) in enumerate(zip(self._total_counts, self._total_times)):
             vs[:, i] = rng.gamma(n, scale=1/r, size=n_samples)
 
         return [MarkovianMilestoningModel(K, 1/v, self._model.milestones) 
@@ -351,6 +355,7 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
         `frozenset({dtraj[-1], -1})`. Lifetimes are positive integers.
  
     """
+    dtraj = msmtools.util.types.ensure_dtraj(dtraj)
     dtraj_it = reversed(dtraj) if forward else iter(dtraj)
     i = next(dtraj_it)
     milestones = [frozenset({-1, i})]
