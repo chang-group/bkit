@@ -4,13 +4,9 @@ Python package and Jupyter notebooks for exploring protein−ligand dissociation
 
 ## Requirements
 
-- Matplotlib
-- <a href="http://mdtraj.org/">MDTraj</a>
-- <a href="https://deeptime-ml.github.io/">deeptime</a>
-- <a href="https://networkx.github.io/">NetworkX</a>
 - NumPy
-- <a href="http://emma-project.org/">PyEMMA</a>
 - SciPy
+- <a href="https://msmtools.readthedocs.io/">MSMTools</a>
 
 ## Installation
 
