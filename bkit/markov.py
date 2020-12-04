@@ -46,6 +46,7 @@ class ContinuousTimeMarkovChain:
 
     @jump_rates.setter
     def jump_rates(self, value):
+        value = np.asarray(value)
         if value.shape != (self.embedded_tmatrix.shape[0],):
             msg = 'number of jump rates must match number of states'
             raise ValueError(msg)
