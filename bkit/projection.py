@@ -3,10 +3,10 @@ from pyemma.coordinates.transform import PCA, TICA
 
 
 class MDProjector:
-    """Composition of a featurizer and a fitted transformer."""
+    """Composite of a featurizer and a fitted transformer."""
     
     def __init__(self, featurizer, transformer):
-        """Composition of a featurizer and a fitted transformer.
+        """Composite of a featurizer and a fitted transformer.
         
         Parameters
         ----------
@@ -29,5 +29,5 @@ class MDProjector:
         
     def transform(self, traj):
         """Project featurized MD data onto a set of eigenvectors."""
-        return self.transformer.transform(self.featurizer.transform(traj))i
+        return self.transformer.transform(self.featurizer.transform(traj))
 
