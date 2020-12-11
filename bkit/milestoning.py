@@ -51,7 +51,7 @@ class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
     @property
     def mean_lifetimes(self):
         """Mean lifetime associated with each milestone.""" 
-        return 1/self.jump_rates
+        return 1 / self.jump_rates
 
     @property
     def stationary_flux(self):
@@ -63,22 +63,6 @@ class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
     def stationary_population(self):
         """Stationary population distribution, normalized to 1."""
         return self.stationary_distribution
-
-    def free_energy(self, kT=1):
-        """Free energies of the milestone states in given units.
-    
-        Parameters
-        ----------
-        kT : float, optional
-            Energy scale factor.
-
-        Returns
-        -------
-        (M,) ndarray
-            Free energies of the milestone states.
-
-        """
-        return -kT * np.log(self.stationary_population)
 
 
 class MarkovianMilestoningEstimator:
