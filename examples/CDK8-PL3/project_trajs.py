@@ -12,7 +12,8 @@ h = ('HDF5 file containing a saved PyEMMA PCA or TICA object '
      + 'equipped with a FeatureReader')
 parser.add_argument('--model', metavar='MODELFILE', 
                     default='pca.h5', help=h)
-h = 'NumPy .npz file containing the projected trajectories'
+h = ('NumPy .npz file containing the projected trajectories '
+     + 'indexed by original filenames')
 parser.add_argument('--output', metavar='OUTPUTFILE', 
                     default='ptrajs.npz', help=h)
 h = ('trajectory file compatible with the FeatureReader of the '
