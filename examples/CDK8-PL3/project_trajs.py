@@ -29,9 +29,9 @@ for i, trajfile in enumerate(args.trajfiles):
     np.save(f'.{i}.npy', transformer.transform(data))
 
 ptrajs = {trajfile: np.load(f'.{i}.npy') 
-          for i, trajfile in enumerate(trajfiles)}
+          for i, trajfile in enumerate(args.trajfiles)}
 np.savez(args.output, **ptrajs)
 
-for i in range(len(trajfiles)):
+for i in range(len(args.trajfiles)):
     os.remove(f'.{i}.npy')
 
