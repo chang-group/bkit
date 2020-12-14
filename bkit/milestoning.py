@@ -129,8 +129,8 @@ class MarkovianMilestoningEstimator:
         schedules : list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
             trajectory decomposition. Milestones are assumed to be 
-            `frozenset`s of cell indices; lifetimes are assumed to 
-            be in units of `self.dt`. Transitions to or from 
+            frozensets of integers (cell indices); lifetimes are assumed 
+            to be in units of `self.dt`. Transitions to or from 
             milestones with unassigned cells (index -1) are ignored.
 
         Returns
@@ -298,8 +298,8 @@ class CoarseGraining:
         -------
         schedules : list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
-            coarse graining. Milestones are `frozenset`s of cell 
-            indices. Lifetimes are positive integers.
+            coarse graining. Milestones are frozensets of integers
+            (cell indices). Lifetimes are positive integers.
 
         """
         trajs = msmtools.util.types.ensure_traj_list(trajs)
@@ -333,10 +333,10 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
     -------
     schedule : list of tuples
         Sequence of (milestone, lifetime) pairs. Milestones are 
-        unordered pairs of cell indices. For ordinary milestoning, 
-        the initial milestone is set to `frozenset({-1, dtraj[0]})`. 
-        For forward milestoning, the final milestone is set to 
-        `frozenset({dtraj[-1], -1})`. Lifetimes are positive integers.
+        frozensets of integers (cell indices). Lifetimes are positive
+        integers. For ordinary milestoning, the initial milestone is 
+        set to {-1, dtraj[0]}. For forward milestoning, the final 
+        milestone is set to {dtraj[-1], -1}.
  
     """
     dtraj = msmtools.util.types.ensure_dtraj(dtraj)
