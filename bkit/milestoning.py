@@ -6,6 +6,15 @@ import scipy.spatial
 from bkit.markov import ContinuousTimeMarkovChain
 
 
+class Milestone(frozenset):
+    """A milestone indexed by a set of cells."""
+
+    @property
+    def cells(self):
+        """Cells associated with the milestone."""
+        return set(self)
+
+
 class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
     """Milestoning process governed by a continuous-time Markov chain."""
 
@@ -128,10 +137,10 @@ class MarkovianMilestoningEstimator:
         ----------
         schedules : list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
-            trajectory decomposition. Milestones are assumed to be 
-            frozensets of integers (cell indices); lifetimes are assumed 
+            trajectory decomposition. Lifetimes are assumed 
             to be in units of `self.dt`. Transitions to or from 
-            milestones with unassigned cells (index -1) are ignored.
+            milestones associated with unassigned cells (index -1) 
+            are ignored.
 
         Returns
         -------
@@ -298,7 +307,7 @@ class CoarseGraining:
         -------
         schedules : list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
-            coarse graining. Milestones are frozensets of integers
+            coarse graining. Milestones are unordered pairs of integers
             (cell indices). Lifetimes are positive integers.
 
         """
@@ -333,21 +342,21 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
     -------
     schedule : list of tuples
         Sequence of (milestone, lifetime) pairs. Milestones are 
-        frozensets of integers (cell indices). Lifetimes are positive
-        integers. For ordinary milestoning, the initial milestone is 
-        set to {-1, dtraj[0]}. For forward milestoning, the final 
-        milestone is set to {dtraj[-1], -1}.
+        unordered pairs of integers (cell indices). Lifetimes are 
+        positive integers. For ordinary milestoning, the initial 
+        milestone is set to `{-1, dtraj[0]}`. For forward milestoning, 
+        the final milestone is set to `{dtraj[-1], -1}`.
  
     """
     dtraj = msmtools.util.types.ensure_dtraj(dtraj)
     dtraj_it = reversed(dtraj) if forward else iter(dtraj)
     i = next(dtraj_it)
-    milestones = [frozenset({-1, i})]
+    milestones = [Milestone({-1, i})]
     lifetimes = [0]
     for j in dtraj_it:
         lifetimes[-1] += 1
         if j not in milestones[-1]:
-            milestones.append(frozenset({i, j}))
+            milestones.append(Milestone({i, j}))
             lifetimes.append(0)
         i = j
     if forward:
