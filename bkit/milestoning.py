@@ -14,6 +14,9 @@ class Milestone(frozenset):
         """Cells associated with the milestone."""
         return set(self)
 
+    def __repr__(self):
+        return f'Milestone({self.cells})'
+
 
 class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
     """Milestoning process governed by a continuous-time Markov chain."""
