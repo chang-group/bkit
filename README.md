@@ -1,4 +1,4 @@
-# BKiT (Binding Kinetics Toolkit)
+# BKiT
 
 Python package for analysis of molecular dynamics trajectories using milestoning.
 
