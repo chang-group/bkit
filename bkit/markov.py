@@ -3,32 +3,31 @@ import msmtools.analysis as msmana
 
 
 class ContinuousTimeMarkovChain:
-    """A continuous-time Markov chain (i.e., Markov jump process)."""
+    """A continuous-time Markov chain (i.e., Markov jump process).
+        
+    Parameters
+    ----------
+    embedded_tmatrix : (M, M) array_like
+        Transition matrix of the embedded discrete-time Markov chain. 
+        Must be row stochastic with diagonal elements all equal to zero.
+
+    jump_rates: (M,) array_like
+        Exponential rate parameters.
+
+    states : iterable, optional
+        State labels, assumed to be hashable. Will default to 
+        ``range(M)`` if not provided.
+ 
+    """
 
     def __init__(self, embedded_tmatrix, jump_rates, states=None):
-        """Create a new ContinuousTimeMarkovChain.
-
-        Parameters
-        ----------
-        embedded_tmatrix : (M, M) array_like
-            Transition matrix of the embedded discrete-time Markov
-            chain. Must be row stochastic with diagonal elements
-            all equal to zero.
-
-        jump_rates: (M,) array_like
-            Exponential rate parameters, positive (>0).
-
-        states : (M,) array_like, optional
-            State labels, assumed to be hashable. Will default to 
-            np.arange(M) if no labels are provided.
-            
-        """
         self.embedded_tmatrix = embedded_tmatrix
         self.jump_rates = jump_rates
         self.states = states
 
     @property
     def embedded_tmatrix(self):
+        """ndarray: Transition matrix of the embedded chain."""
         return self._embedded_tmatrix
 
     @embedded_tmatrix.setter
@@ -42,6 +41,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def jump_rates(self):
+        """ndarray: Rate parameters."""
         return self._jump_rates
 
     @jump_rates.setter
@@ -56,35 +56,34 @@ class ContinuousTimeMarkovChain:
 
     @property
     def rate_matrix(self):
-        """Transition rate matrix (infinitesimal generator)."""
+        """ndarray: Transition rate matrix (infinitesimal generator)."""
         rate_matrix = self.jump_rates[:, np.newaxis] * self.embedded_tmatrix
         rate_matrix[np.diag_indices(self.n_states)] = -self.jump_rates
         return rate_matrix
 
     @property
     def stationary_distribution(self): 
-        """Stationary population distribution, normalized to 1."""
+        """ndarray: Stationary distribution, normalized to 1."""
         p = (msmana.stationary_distribution(self.embedded_tmatrix) 
              / self.jump_rates)
         return p / p.sum()
 
     @property
     def is_reversible(self):
-        """Whether the Markov chain is reversible."""
+        """bool: Whether the Markov chain is reversible."""
         return msmana.is_reversible(self.embedded_tmatrix)
     
     @property
     def states(self):
-        """State labels."""
+        """list: State labels."""
         return self._states
 
     @states.setter
     def states(self, value):
         if value is None:
-            self._states = np.arange(self.embedded_tmatrix.shape[0])
-            return
-        value = np.asarray(value)
-        if value.shape != (self.embedded_tmatrix.shape[0],):
+            value = range(self.embedded_tmatrix.shape[0])
+        value = list(value)
+        if len(value) != self.embedded_tmatrix.shape[0]:
             msg = 'number of labels must match number of states'
             raise ValueError(msg)
         self._states = value
@@ -92,12 +91,12 @@ class ContinuousTimeMarkovChain:
 
     @property
     def n_states(self):
-        """Number of states."""
+        """int: The number of states."""
         return len(self.states)
 
     @property
     def state_to_index(self):
-        """A dictionary mapping each state label to its index."""
+        """dict: Mapping from each state label to its index."""
         return self._state_to_index 
 
     def mfpt(self, target_indices):
@@ -105,12 +104,12 @@ class ContinuousTimeMarkovChain:
 
         Parameters
         ----------
-        target_indices : int or array_like of int
+        target_indices : int or list of int
             Indices of the target states.
 
         Returns
         -------
-        (M,) ndarray
+        ndarray, shape (M,)
             Mean first passage time from each state to the target set.
 
         """
