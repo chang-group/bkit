@@ -121,7 +121,7 @@ class ContinuousTimeMarkovChain:
         mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
         return mfpt
 
-    def reactive_flux(source, target):
+    def reactive_flux(self, source, target):
         """Reactive flux from transition path theory (TPT).
 
         Parameters
