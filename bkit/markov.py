@@ -115,7 +115,7 @@ class ContinuousTimeMarkovChain:
 
         """
         is_source = np.ones(self.n_states, dtype=bool)
-        is_source[target_indices] = False
+        is_source[target] = False
         Q = self.rate_matrix[is_source, :][:, is_source]
         mfpt = np.zeros(self.n_states)
         mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
