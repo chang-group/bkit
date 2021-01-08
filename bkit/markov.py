@@ -1,5 +1,6 @@
 import numpy as np
 import msmtools.analysis as msmana
+import msmtools.flux
 
 
 class ContinuousTimeMarkovChain:
@@ -7,11 +8,11 @@ class ContinuousTimeMarkovChain:
         
     Parameters
     ----------
-    embedded_tmatrix : (M, M) array_like
+    embedded_tmatrix : array_like, shape (M, M)
         Transition matrix of the embedded discrete-time Markov chain. 
         Must be row stochastic with diagonal elements all equal to zero.
 
-    jump_rates: (M,) array_like
+    jump_rates: array_like, shape (M,)
         Exponential rate parameters.
 
     states : iterable, optional
@@ -96,15 +97,15 @@ class ContinuousTimeMarkovChain:
 
     @property
     def state_to_index(self):
-        """dict: Mapping from each state label to its index."""
+        """dict: Mapping from state labels to integer indices."""
         return self._state_to_index 
 
-    def mfpt(self, target_indices):
-        """Mean first passage times to a target set of states.
+    def mfpt(self, target):
+        """Mean first passage time to a target set of states.
 
         Parameters
         ----------
-        target_indices : int or list of int
+        target : int or list of int
             Indices of the target states.
 
         Returns
@@ -119,4 +120,25 @@ class ContinuousTimeMarkovChain:
         mfpt = np.zeros(self.n_states)
         mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
         return mfpt
+
+    def reactive_flux(source, target):
+        """Reactive flux from transition path theory (TPT).
+
+        Parameters
+        ----------
+        source : int or list of int
+            Indices of the source states.
+
+        target : int or list of int
+            Indices of the target states.
+
+        Returns
+        -------
+        msmtools.flux.ReactiveFlux
+            An object describing the reactive flux. See MSMTools 
+            documentation for full details.
+
+        """
+        return msmtools.flux.tpt(self.rate_matrix, source, target, 
+                                 rate_matrix=True)
 
