@@ -97,7 +97,7 @@ class ContinuousTimeMarkovChain:
         return self._state_to_index 
 
     def committor(self, source, target, forward=True):
-        """Forward committor between sets of microstates.
+        """Committor probability between two sets of states.
 
         Parameters
         ----------
