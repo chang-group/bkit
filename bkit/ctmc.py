@@ -17,8 +17,8 @@ class ContinuousTimeMarkovChain:
         will be computed from the rate matrix.
 
     states : iterable, optional
-        State labels, assumed to be hashable. Will default to 
-        ``range(M)`` if not provided.
+        State labels. Values must be unique and hashable. Will default 
+        to ``range(M)`` if not provided.
  
     """
 
@@ -51,7 +51,8 @@ class ContinuousTimeMarkovChain:
             return
         if not np.allclose(np.dot(value, self.rate_matrix), 
                            np.zeros_like(value)):
-            raise ValueError('vector must be invariant w.r.t. rate matrix')
+            msg = 'vector must be invariant under the infinitesimal generator'
+            raise ValueError(msg)
         self._statdist = np.asarray(value) / np.sum(value)
 
     @property
@@ -80,21 +81,23 @@ class ContinuousTimeMarkovChain:
         if value is None:
             value = range(self.rate_matrix.shape[0])
         value = list(value)
-        if len(value) != self.rate_matrix.shape[0]:
+        if len(value) > len(set(value)):
+            raise ValueError('state labels must be unique')
+        if len(value) != self.n_states:
             msg = 'number of labels must match number of states'
             raise ValueError(msg)
         self._states = value
-        self._state_to_index = {x: i for i, x in enumerate(value)}
+        self._index = {x: i for i, x in enumerate(value)}
 
     @property
     def n_states(self):
         """int: The number of states."""
-        return len(self.states)
+        return self.rate_matrix.shape[0]
 
     @property
     def state_to_index(self):
         """dict: Mapping from state labels to integer indices."""
-        return self._state_to_index 
+        return self._index
 
     def committor(self, source, target, forward=True):
         """Committor probability between two sets of states.
@@ -135,10 +138,10 @@ class ContinuousTimeMarkovChain:
 
         """
         is_source = np.ones(self.n_states, dtype=bool)
-        is_source[target_indices] = False
+        is_source[target] = False
         Q = self.rate_matrix[is_source, :][:, is_source]
         mfpt = np.zeros(self.n_states)
-        mfpt[is_source] = np.linalg.solve(Q, -np.ones(len(Q)))
+        mfpt[is_source] = np.linalg.solve(Q, -np.ones(Q.shape[0]))
         return mfpt
 
     def reactive_flux(self, source, target):
