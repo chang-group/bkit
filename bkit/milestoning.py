@@ -66,9 +66,14 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def stationary_flux(self):
-        """ndarray: Stationary flux distribution, normalized to 1."""
+        """ndarray: Stationary flux vector, normalized to 1."""
         q = self.stationary_distribution * self.jump_rates
         return q / q.sum()
+
+    @property
+    def stationary_probability(self):
+        """ndarray: Stationary probability vector, normalized to 1."""
+        return self.stationary_distribution
 
 
 class MarkovianMilestoningEstimator:
