@@ -62,7 +62,7 @@ class ContinuousTimeMarkovChain:
     @property
     def jump_rates(self):
         """ndarray: Rate parameters."""
-        return jump_rates(self.rate_matrix)
+        return -self.rate_matrix.diagonal()
 
     @property
     def is_reversible(self):
@@ -187,30 +187,13 @@ def embedded_tmatrix(rate_matrix):
         Markov chain with rate matrix `rate_matrix`.
 
     """
-    jump_rates = jump_rates(rate_matrix) 
-    embedded_tmatrix = rate_matrix / jump_rates[:, np.newaxis]
-    np.fill_diagonal(embedded_tmatrix, 0)
-    return embedded_tmatrix
-
-
-def jump_rates(rate_matrix):
-    """Jump rates of a transition rate matrix.
-
-    Parameters
-    ----------
-    rate_matrix : (M, M) array_like
-        Transition rate matrix, row infinitesimal stochastic.
-
-    Returns
-    -------
-    (M,) ndarray
-        Jump rates (negative of the diagonal elements) of `rate_matrix`.
-
-    """
     rate_matrix = np.asarray(rate_matrix)
     if not msmana.is_rate_matrix(rate_matrix):
           raise ValueError('matrix must be row infinitesimal stochastic')
-    return -rate_matrix.diagonal()
+    jump_rates = -rate_matrix.diagonal()
+    embedded_tmatrix = rate_matrix / jump_rates[:, np.newaxis]
+    np.fill_diagonal(embedded_tmatrix, 0)
+    return embedded_tmatrix
 
 
 def rate_matrix(embedded_tmatrix, jump_rates):
@@ -228,7 +211,7 @@ def rate_matrix(embedded_tmatrix, jump_rates):
 
     Returns
     -------
-    rate_matrix : (M, M) ndarray
+    (M, M) ndarray
         Rate matrix of the continuous-time Markov chain with embedded 
         chain `embedded_tmatrix` and jump rates `jump_rates`.
 
@@ -247,7 +230,7 @@ def rate_matrix(embedded_tmatrix, jump_rates):
         raise ValueError('jump rates must be positive')
     
     rate_matrix = jump_rates[:, np.newaxis] * embedded_tmatrix
-    rate_matrix[np.diag_indices()] = -jump_rates
+    rate_matrix[np.diag_indices_from(rate_matrix)] = -jump_rates
 
     return rate_matrix
 
@@ -266,7 +249,7 @@ def stationary_distribution(rate_matrix):
         Stationary distribution of `rate_matrix`, normalized to 1.
 
     """
-    p = (msmana.stationary_distribution(embedded_tmatrix(rate_matrix))
-         / jump_rates(rate_matrix))
-    return p / p.sum()
+    P = embedded_tmatrix(rate_matrix)
+    mu = -msmana.stationary_distribution(P) / np.diagonal(rate_matrix)
+    return mu / mu.sum()
 

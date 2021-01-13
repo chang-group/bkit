@@ -3,7 +3,7 @@ import msmtools.estimation as estimation
 import msmtools.util.types
 import numpy as np
 import scipy.spatial
-from bkit.markov import ContinuousTimeMarkovChain
+import bkit.ctmc as ctmc
 
 
 class Milestone(frozenset):
@@ -11,70 +11,64 @@ class Milestone(frozenset):
 
     @property
     def cells(self):
-        """Cells associated with the milestone."""
+        """set: Cells associated with the milestone."""
         return set(self)
 
     def __repr__(self):
         return f'Milestone({self.cells})'
 
 
-class MarkovianMilestoningModel(ContinuousTimeMarkovChain):
-    """Milestoning process governed by a continuous-time Markov chain."""
+class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
+    """Milestoning process governed by a continuous-time Markov chain.
 
-    def __init__(self, transition_kernel, mean_lifetimes, milestones=None):
-        """Create a new MarkovianMilestoningModel.
+    Parameters
+    ----------
+    transition_kernel : (M, M) array_like
+        Transition probability kernel. Must be a row stochastic matrix 
+        with all diagonal elements equal to zero.
 
-        Parameters
-        ----------
-        transition_kernel : (M, M) array_like
-            Transition probability kernel. Must be a row stochastic 
-            matrix with all diagonal elements equal to zero.
+    mean_lifetimes : (M,) array_like
+        Average milestone lifetimes, positive (>0).
 
-        mean_lifetimes : (M,) array_like
-            Average milestone lifetimes, positive (>0).
-
-        milestones : (M,) array_like, optional
-            Milestone labels, assumed to be hashable. Will default to 
-            np.arange(M) if not provided.            
+    milestones : iterable, optional
+        Milestone labels, assumed to be hashable. Will default to 
+        ``range(M)`` if not provided.            
            
         """
-        super().__init__(transition_kernel, 1/mean_lifetimes, milestones)
+    def __init__(self, transition_kernel, mean_lifetimes, milestones=None):
+        Q = ctmc.rate_matrix(transition_kernel, 1.0/mean_lifetimes)
+        super().__init__(Q, states=milestones)
 
     @property
     def milestones(self):
-        """Milestone labels in indexed order."""
+        """list: Milestone labels in indexed order."""
         return self.states
 
     @property
     def n_milestones(self):
-        """Number of milestones."""
+        """int: Number of milestones."""
         return self.n_states
 
     @property
     def milestone_to_index(self):
-        """A dictionary mapping each milestone label to its index."""
+        """dict: Mapping from milestone labels to integer indices."""
         return self.state_to_index
 
     @property
     def transition_kernel(self):
-        """Transition probability kernel."""
+        """ndarray: Transition probability kernel."""
         return self.embedded_tmatrix
 
     @property
     def mean_lifetimes(self):
-        """Mean lifetime associated with each milestone.""" 
+        """ndarray: Mean lifetime associated with each milestone.""" 
         return 1 / self.jump_rates
 
     @property
     def stationary_flux(self):
-        """Stationary flux distribution, normalized to 1."""
+        """ndarray: Stationary flux distribution, normalized to 1."""
         q = self.stationary_distribution * self.jump_rates
         return q / q.sum()
-
-    @property
-    def stationary_population(self):
-        """Stationary population distribution, normalized to 1."""
-        return self.stationary_distribution
 
 
 class MarkovianMilestoningEstimator:
