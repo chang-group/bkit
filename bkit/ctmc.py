@@ -149,10 +149,10 @@ class ContinuousTimeMarkovChain:
 
         Parameters
         ----------
-        source : int or list of int
+        source : list of int
             Indices of the source states.
 
-        target : int or list of int
+        target : list of int
             Indices of the target states.
 
         Returns
