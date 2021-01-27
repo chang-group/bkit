@@ -7,7 +7,14 @@ import bkit.ctmc as ctmc
 
 
 class Milestone(frozenset):
-    """A milestone indexed by a set of cells."""
+    """A milestone indexed by a set of cells.
+
+    Parameters
+    ----------
+    cells : iterable
+        The cells associated with the milestone
+
+    """
 
     @property
     def cells(self):
@@ -30,29 +37,14 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     mean_lifetimes : (M,) array_like
         Average milestone lifetimes, positive (>0).
 
-    milestones : iterable, optional
-        Milestone labels, assumed to be hashable. Will default to 
-        ``range(M)`` if not provided.            
+    milestones : sequence of :obj:`Milestone`
+        Milestone states. Values must be unique.            
            
-        """
-    def __init__(self, transition_kernel, mean_lifetimes, milestones=None):
-        Q = ctmc.rate_matrix(transition_kernel, 1.0/mean_lifetimes)
+    """
+
+    def __init__(self, transition_kernel, mean_lifetimes, milestones):
+        Q = ctmc.rate_matrix(transition_kernel, 1/np.asarray(mean_lifetimes))
         super().__init__(Q, states=milestones)
-
-    @property
-    def milestones(self):
-        """list: Milestone labels in indexed order."""
-        return self.states
-
-    @property
-    def n_milestones(self):
-        """int: Number of milestones."""
-        return self.n_states
-
-    @property
-    def milestone_to_index(self):
-        """dict: Mapping from milestone labels to integer indices."""
-        return self.state_to_index
 
     @property
     def transition_kernel(self):
@@ -77,35 +69,24 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
 
 class MarkovianMilestoningEstimator:
-    """Estimator for Markovian milestoning models."""
+    """Estimator for Markovian milestoning models.
+        
+    Parameters
+    ----------
+    reversible : bool, optional
+        If True, restrict the ensemble of transition matrices
+        to those satisfying detailed balance.
 
-    def __init__(self, reversible=True, dt=1):
-        """Estimator for Markovian milestoning models.
+    """
 
-        Parameters
-        ----------
-        reversible : bool, optional
-            If True, restrict the ensemble of transition matrices
-            to those satisfying detailed balance.
-
-        dt : float, optional
-            Observation interval (time resolution) of MD data.
-            
-        """
-        super().__init__()
-        self._reversible = reversible
-        self._dt = dt
+    def __init__(self, reversible=True):
+        self._reversible = bool(reversible)
         self._model = None
 
     @property
     def reversible(self):
         """If True, perform reversible estimation."""
         return self._reversible
-
-    @property
-    def dt(self):
-        """Observation interval (time resolution) of MD data."""
-        return self._dt
 
     @property
     def maximum_likelihood_model(self):
@@ -120,7 +101,7 @@ class MarkovianMilestoningEstimator:
         data : list of lists of tuples, dict
             Milestone schedules, i.e., lists of (milestone, lifetime) pairs,
             or a mapping from ordered pairs of milestones to lists of
-            lag times. Times are assumed to be in units of `self.dt`.
+            lag times. 
 
         Returns
         -------
@@ -139,10 +120,8 @@ class MarkovianMilestoningEstimator:
         ----------
         schedules : list of lists of tuples
             Sequences of (milestone, lifetime) pairs obtained by
-            trajectory decomposition. Lifetimes are assumed 
-            to be in units of `self.dt`. Transitions to or from 
-            milestones associated with unassigned cells (index -1) 
-            are ignored.
+            trajectory decomposition. Transitions to or from milestones 
+            associated with unassigned cells (index -1) are ignored.
 
         Returns
         -------
@@ -168,7 +147,6 @@ class MarkovianMilestoningEstimator:
             Mapping from ordered pairs of milestones to lag times:
             `lagtimes[a, b]` is a list of lag times for transitions 
             from source milestone `a` to target milestone `b`. 
-            Times are assumed to be in units of `self.dt`.
 
         Returns
         -------
@@ -189,8 +167,6 @@ class MarkovianMilestoningEstimator:
             total_times[ix[a]] += sum(times)
         total_counts = count_matrix.sum(axis=1)
         
-        total_times *= self.dt  # should this be done here?
- 
         self._count_matrix = count_matrix
         self._total_times = total_times
         self._total_counts = total_counts
@@ -333,8 +309,9 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
 
     Parameters
     ----------
-    dtraj : ndarray(T, dtype=int)
-        A discrete trajectory, i.e., a sequence of cell indices.
+    dtraj : sequence of int
+        A discrete trajectory, e.g., a sequence of cell or cluster 
+        indices. The index -1 is reserved to indicate "undefined".
 
     forward : bool, optional
         If true, track the next milestone hit (forward commitment),
@@ -342,12 +319,11 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
 
     Returns
     -------
-    schedule : list of tuples
-        Sequence of (milestone, lifetime) pairs. Milestones are 
-        unordered pairs of integers (cell indices). Lifetimes are 
-        positive integers. For ordinary milestoning, the initial 
-        milestone is set to `{-1, dtraj[0]}`. For forward milestoning, 
-        the final milestone is set to `{dtraj[-1], -1}`.
+    Sequence[tuple[Milestone, int]]
+        Sequence of (milestone, lifetime) pairs. For ordinary (backward)
+        milestoning, the initial milestone is set to 
+        :code:`Milestone({-1, dtraj[0]})`. For forward milestoning, the 
+        final milestone is set to :code:`Milestone({dtraj[-1], -1})`.
  
     """
     dtraj = msmtools.util.types.ensure_dtraj(dtraj)
