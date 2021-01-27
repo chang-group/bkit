@@ -123,6 +123,23 @@ class ContinuousTimeMarkovChain:
         return msmana.committor(self.embedded_tmatrix, source, target, 
                                 forward=forward)
 
+    def expectation(self, observable):
+        """Stationary expectation of an observable.
+
+        Parameters
+        ----------
+        observable : (M,) array_like
+            A function on the state space of the Markov chain.
+
+        Returns
+        -------
+        float
+            Expected value of the observable with respect to the 
+            stationary probability distribution.
+        
+        """
+        return np.dot(observable, self.stationary_distribution)
+
     def mfpt(self, target):
         """Mean first passage time to a target set of states.
 
