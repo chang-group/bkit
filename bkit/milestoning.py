@@ -12,13 +12,13 @@ class Milestone(frozenset):
     Parameters
     ----------
     cells : iterable
-        The cells associated with the milestone
+        The cells incident to the milestone.
 
     """
 
     @property
     def cells(self):
-        """set: Cells associated with the milestone."""
+        """set: Cells incident to the milestone."""
         return set(self)
 
     def __repr__(self):
