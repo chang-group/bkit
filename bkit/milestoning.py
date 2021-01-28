@@ -98,10 +98,10 @@ class MarkovianMilestoningEstimator:
 
         Parameters
         ----------
-        data : list of lists of tuples, dict
-            Milestone schedules, i.e., lists of (milestone, lifetime) pairs,
-            or a mapping from ordered pairs of milestones to lists of
-            lag times. 
+        data : iterable of Sequence[tuple[Milestone, int]], dict
+            Milestone schedules, i.e., lists of (milestone, lifetime) 
+            pairs, or a mapping from ordered pairs of milestones to lists 
+            of lag times.
 
         Returns
         -------
@@ -118,8 +118,8 @@ class MarkovianMilestoningEstimator:
 
         Parameters
         ----------
-        schedules : list of lists of tuples
-            Sequences of (milestone, lifetime) pairs obtained by
+        schedules : iterable of Sequence[tuple[Milestone, int]]
+            Sequences of (milestone, lifetime) pairs obtained by 
             trajectory decomposition. Transitions to or from milestones 
             associated with unassigned cells (index -1) are ignored.
 
