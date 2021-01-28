@@ -16,7 +16,7 @@ class ContinuousTimeMarkovChain:
         given rate matrix. If not provided, the stationary distribution
         will be computed from the rate matrix.
 
-    states : iterable, optional
+    states : sequence, optional
         State labels. Values must be unique and hashable. Will default 
         to ``range(M)`` if not provided.
  
