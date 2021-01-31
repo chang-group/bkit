@@ -19,7 +19,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         Average milestone lifetimes, positive (>0).
 
     milestones : sequence
-        Milestone indices. Values must be unique and hashable
+        Milestone indices. Values must be unique and hashable.
            
     """
 
@@ -196,7 +196,7 @@ class MarkovianMilestoningEstimator:
         for i, (n, r) in enumerate(zip(self._total_counts, self._total_times)):
             vs[:, i] = rng.gamma(n, scale=1/r, size=n_samples)
 
-        return [MarkovianMilestoningModel(K, 1/v, self._model.milestones) 
+        return [MarkovianMilestoningModel(K, 1/v, self._model.states) 
                 for K, v in zip(Ks, vs)]
 
 
