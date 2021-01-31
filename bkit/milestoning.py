@@ -18,23 +18,23 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     mean_lifetimes : (M,) array_like
         Average milestone lifetimes, positive (>0).
 
-    milestone_indices : sequence
-        Milestone indices. Values must be unique and hashable.
+    milestones : sequence
+        Milestone indices. Values must be unique and hashable
            
     """
 
-    def __init__(self, transition_kernel, mean_lifetimes, milestone_indices):
+    def __init__(self, transition_kernel, mean_lifetimes, milestones):
         Q = ctmc.rate_matrix(transition_kernel, 1/np.asarray(mean_lifetimes))
-        super().__init__(Q, states=milestone_indices)
+        super().__init__(Q, states=milestones)
 
     @property
     def transition_kernel(self):
-        """ndarray: Transition probability kernel."""
+        """ndarray: Milestone-to-milestone transition probabilities."""
         return self.embedded_tmatrix
 
     @property
     def mean_lifetimes(self):
-        """ndarray: Mean lifetime associated with each milestone.""" 
+        """ndarray: Mean lifetime of each milestone."""
         return 1 / self.jump_rates
 
     @property
@@ -206,18 +206,21 @@ class CoarseGraining:
     Parameters
     ----------
     anchors : (N, d) array_like
-        Generating points for Voronoi tessellation.
+        Generating points of the Voronoi tessellation.
 
     parent_cell : (N,) array_like of int, optional
-        
+        The cell index associated with each anchor. Can be used to 
+        define a Voronoi diagram with sites that are sets of anchors
+        rather than single anchors. Will default to :code:`range(N)`
+        if not provided. 
 
     boxsize : (d,) array_like or scalar, optional
         Apply `d`-dimensional toroidal topology (periodic boundary 
         conditions).
 
     cutoff : positive float, optional
-        Maximum distance to the nearest anchor. The region of space beyond
-        this cutoff is treated as a cell with index -1.
+        Maximum distance to the nearest anchor. The region of state space
+        outside the cutoff is treated as a cell with index -1.
 
     forward : bool, optional
         If true, track the next milestone hit (forward commitment),
@@ -225,41 +228,65 @@ class CoarseGraining:
 
     """
 
-    def __init__(self, anchors, boxsize=None, cutoff=None, forward=False):
-        self._anchors = anchors
-        self._boxsize = boxsize
-        self._cutoff = cutoff
-        self._forward = forward
-
-        if type(anchors) is np.ndarray:
-            parent_cell = list(range(len(anchors)))
-        else:
-            parent_cell = [i for i, a in enumerate(anchors) for x in a]
-            anchors = np.concatenate(anchors)
-        if np.isfinite(cutoff):
-            parent_cell.append(-1)
-        self._parent_cell = np.asarray(parent_cell, dtype=int)
-        self._kdtree = scipy.spatial.cKDTree(anchors, boxsize=boxsize)    
+    def __init__(self, anchors, parent_cell=None, boxsize=None, cutoff=None,
+                 forward=False):
+        self._kdtree = scipy.spatial.cKDTree(anchors, boxsize=boxsize)
+        self.cutoff = cutoff
+        self.parent_cell = parent_cell
+        self.forward = forward
 
     @property
     def anchors(self):
-        """ndarray: Sites of the Voronoi diagram."""
-        return self._anchors
+        """(N, d) ndarray: Generating points for Voronoi tessellation."""
+        return self._kdtree.data
 
     @property
     def boxsize(self):
-        """Periodic dimensions."""
-        return self._boxsize
+        """(d,) ndarray: Periodic box lengths."""
+        return self._kdtree.boxsize
 
     @property
     def cutoff(self):
-        """Maximum distance to nearest anchor."""
+        """float: Maximum distance to nearest anchor."""
         return self._cutoff
+
+    @cutoff.setter
+    def cutoff(self, value):
+        if value is None:
+            self._cutoff = np.inf
+        else:
+            if value <= 0:
+                raise ValueError('cutoff must be positive')
+            self._cutoff = float(value)
+
+    @property
+    def parent_cell(self):
+        """(N,) ndarray of int: Cell index associated with each anchor."""
+        if np.isfinite(self.cutoff):
+            return self._parent_cell[:-1]
+        return self._parent_cell
+
+    @parent_cell.setter
+    def parent_cell(self, value):
+        if value is None:
+            value = np.arange(self._kdtree.n)
+        else:
+            value = msmtools.util.types.ensure_dtraj(value)
+            if len(value) != self._kdtree.n:
+                msg = 'number of cell indices much match number of anchors'
+                raise ValueError(msg)
+        if np.isfinite(self.cutoff):
+            value = np.append(value, -1) 
+        self._parent_cell = value
 
     @property
     def forward(self):
-        """Whether to map to a forward milestoning process."""
+        """bool: Whether to map to a forward milestoning process."""
         return self._forward
+
+    @forward.setter
+    def forward(self, value):
+        self._forward = bool(value)
 
     def transform(self, trajs):
         """Map space-continuous dynamics to milestoning dynamics.
@@ -273,8 +300,7 @@ class CoarseGraining:
         -------
         schedules : list of Sequence[tuple[frozenset, int]]
             Sequences of (milestone index, lifetime) pairs obtained by
-            coarse graining. Milestones are unordered pairs of integers
-            (cell indices). Lifetimes are positive integers.
+            "coloring" each trajectory according to its milestone state.
 
         """
         trajs = msmtools.util.types.ensure_traj_list(trajs)
@@ -289,7 +315,7 @@ class CoarseGraining:
     
     def _assign_cells(self, x):
         _, k = self._kdtree.query(x, distance_upper_bound=self.cutoff)
-        return self._parent_cell[k]
+        return self.parent_cell[k]
  
 
 def dtraj_to_milestone_schedule(dtraj, forward=False):
