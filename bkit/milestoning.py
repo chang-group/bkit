@@ -6,25 +6,6 @@ import scipy.spatial
 import bkit.ctmc as ctmc
 
 
-class Milestone(frozenset):
-    """A milestone indexed by a set of cells.
-
-    Parameters
-    ----------
-    cells : iterable
-        The cells incident to the milestone.
-
-    """
-
-    @property
-    def cells(self):
-        """set: Cells incident to the milestone."""
-        return set(self)
-
-    def __repr__(self):
-        return f'Milestone({self.cells})'
-
-
 class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     """Milestoning process governed by a continuous-time Markov chain.
 
@@ -37,14 +18,14 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     mean_lifetimes : (M,) array_like
         Average milestone lifetimes, positive (>0).
 
-    milestones : sequence of :obj:`Milestone`
-        Milestone states. Values must be unique.            
+    milestone_indices : sequence
+        Milestone indices. Values must be unique and hashable.
            
     """
 
-    def __init__(self, transition_kernel, mean_lifetimes, milestones):
+    def __init__(self, transition_kernel, mean_lifetimes, milestone_indices):
         Q = ctmc.rate_matrix(transition_kernel, 1/np.asarray(mean_lifetimes))
-        super().__init__(Q, states=milestones)
+        super().__init__(Q, states=milestone_indices)
 
     @property
     def transition_kernel(self):
@@ -74,8 +55,8 @@ class MarkovianMilestoningEstimator:
     Parameters
     ----------
     reversible : bool, optional
-        If True, restrict the ensemble of transition matrices
-        to those satisfying detailed balance.
+        If True, restrict the space of transition matrices to those 
+        satisfying detailed balance.
 
     """
 
@@ -85,12 +66,12 @@ class MarkovianMilestoningEstimator:
 
     @property
     def reversible(self):
-        """If True, perform reversible estimation."""
+        """bool: If True, perform reversible estimation."""
         return self._reversible
 
     @property
     def maximum_likelihood_model(self):
-        """The maximum likelihood MarkovianMilestoningModel."""
+        """MarkovianMilestoningModel: Maximum likelihood model."""
         return self._model
 
     def fit(self, data):
@@ -98,10 +79,10 @@ class MarkovianMilestoningEstimator:
 
         Parameters
         ----------
-        data : iterable of Sequence[tuple[Milestone, int]], dict
-            Milestone schedules, i.e., lists of (milestone, lifetime) 
-            pairs, or a mapping from ordered pairs of milestones to lists 
-            of lag times.
+        data : iterable of Sequence[tuple[frozenset, int]], dict
+            Milestone schedules, i.e., sequences of (milestone index, 
+            lifetime) pairs, or a mapping from ordered pairs of 
+            milestone indices to collections of lag times.
 
         Returns
         -------
@@ -109,19 +90,19 @@ class MarkovianMilestoningEstimator:
             Reference to self.
 
         """
-        if type(data) is list:
-            return self.fit_from_schedules(data)
-        return self.fit_from_lagtimes(data)
+        if isinstance(data, dict):
+            return self.fit_from_lagtimes(data)
+        return self.fit_from_schedules(data)
 
     def fit_from_schedules(self, schedules):
         """Fit estimator to milestone schedule data.
 
         Parameters
         ----------
-        schedules : iterable of Sequence[tuple[Milestone, int]]
-            Sequences of (milestone, lifetime) pairs obtained by 
+        schedules : iterable of Sequence[tuple[frozenset, int]]
+            Sequences of (milestone index, lifetime) pairs obtained by 
             trajectory decomposition. Transitions to or from milestones 
-            associated with unassigned cells (index -1) are ignored.
+            bordering unassigned cells (index -1) are ignored.
 
         Returns
         -------
@@ -167,9 +148,12 @@ class MarkovianMilestoningEstimator:
             total_times[ix[a]] += sum(times)
         total_counts = count_matrix.sum(axis=1)
         
-        self._count_matrix = count_matrix
-        self._total_times = total_times
-        self._total_counts = total_counts
+        connected = estimation.largest_connected_set(count_matrix,
+            directed=(True if self.reversible else False))
+        milestones = [milestones[i] for i in connected]
+        self._count_matrix = count_matrix[connected, :][:, connected]
+        self._total_times = total_times[connected]
+        self._total_counts = total_counts[connected]
 
         K = estimation.transition_matrix(
             count_matrix, reversible=self.reversible)
@@ -189,8 +173,9 @@ class MarkovianMilestoningEstimator:
 
         Returns
         -------
-        samples : list of MarkovianMilestoningModels
-            Sampled models, or `None` if the estimator has not been fit.
+        samples : list of MarkovianMilestoningModel
+            Sampled models, or :code:`None` if the estimator has not 
+            been fit.
 
         """
         if self._model is None:
@@ -213,31 +198,31 @@ class MarkovianMilestoningEstimator:
 
 
 class CoarseGraining:
-    """Mapping from space-continuous dynamics to milestoning dynamics."""
+    """Mapping from space-continuous dynamics to milestoning dynamics.
+        
+    Parameters
+    ----------
+    anchors : (N, d) array_like
+        Generating points for Voronoi tessellation.
 
-    def __init__(self, anchors, boxsize=None, cutoff=np.inf, forward=False):
-        """Mapping from space-continuous dynamics to milestoning dynamics.
+    parent_cell : (N,) array_like of int, optional
+        
 
-        Parameters
-        ----------
-        anchors : ndarray (N, d) or list of ndarray (N_i, d)
-            Generating points for Voronoi tessellation. 
-            If a list of ndarrays is given, each subset of anchors
-            indicates a union of Voronoi cells that should be treated 
-            as a single cell.
+    boxsize : (d,) array_like or scalar, optional
+        Apply `d`-dimensional toroidal topology (periodic boundary 
+        conditions).
 
-        boxsize : array_like or scalar, optional
-            Apply d-dimensional toroidal topology (periodic boundaries).
+    cutoff : positive float, optional
+        Maximum distance to the nearest anchor. The region of space beyond
+        this cutoff is treated as a cell with index -1.
 
-        cutoff : positive float, optional
-            Maximum distance to nearest anchor. The region of space 
-            beyond the cutoff is treated as a cell with index -1.
+    forward : bool, optional
+        If true, track the next milestone hit (forward commitment),
+        rather than the last milestone hit (backward commitment).
 
-        forward : bool, optional
-            If true, track the next milestone hit (forward commitment),
-            rather than the last milestone hit (backward commitment).
+    """
 
-        """
+    def __init__(self, anchors, boxsize=None, cutoff=None, forward=False):
         self._anchors = anchors
         self._boxsize = boxsize
         self._cutoff = cutoff
@@ -255,7 +240,7 @@ class CoarseGraining:
 
     @property
     def anchors(self):
-        """Sites of the Voronoi diagram."""
+        """ndarray: Sites of the Voronoi diagram."""
         return self._anchors
 
     @property
@@ -278,13 +263,13 @@ class CoarseGraining:
 
         Parameters
         ----------
-        trajs : ndarray (T, d) or list of ndarray (T_i, d)
-            Trajectories to be coarse grained.
+        trajs : (T, d) array_like or list of (T_i, d) array_like
+            Trajectories to be coarse grained. 
 
         Returns
         -------
-        schedules : list of lists of tuples
-            Sequences of (milestone, lifetime) pairs obtained by
+        schedules : list of Sequence[tuple[frozenset, int]]
+            Sequences of (milestone index, lifetime) pairs obtained by
             coarse graining. Milestones are unordered pairs of integers
             (cell indices). Lifetimes are positive integers.
 
@@ -300,7 +285,7 @@ class CoarseGraining:
         return dtraj_to_milestone_schedule(dtraj, forward=self.forward)
     
     def _assign_cells(self, x):
-        _, k = self._kdtree.query(x, distance_upper_bound=self._cutoff)
+        _, k = self._kdtree.query(x, distance_upper_bound=self.cutoff)
         return self._parent_cell[k]
  
 
@@ -319,22 +304,22 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
 
     Returns
     -------
-    Sequence[tuple[Milestone, int]]
-        Sequence of (milestone, lifetime) pairs. For ordinary (backward)
-        milestoning, the initial milestone is set to 
-        :code:`Milestone({-1, dtraj[0]})`. For forward milestoning, the 
-        final milestone is set to :code:`Milestone({dtraj[-1], -1})`.
+    Sequence[tuple[frozenset, int]]
+        Sequence of (milestone index, lifetime) pairs. For ordinary 
+        milestoning, the initial milestone index is set to 
+        :code:`frozenset({-1, dtraj[0]})`. For forward milestoning, the 
+        final milestone is set to :code:`frozenset({dtraj[-1], -1})`.
  
     """
     dtraj = msmtools.util.types.ensure_dtraj(dtraj)
     dtraj_it = reversed(dtraj) if forward else iter(dtraj)
     i = next(dtraj_it)
-    milestones = [Milestone({-1, i})]
+    milestones = [frozenset({-1, i})]
     lifetimes = [0]
     for j in dtraj_it:
         lifetimes[-1] += 1
         if j not in milestones[-1]:
-            milestones.append(Milestone({i, j}))
+            milestones.append(frozenset({i, j}))
             lifetimes.append(0)
         i = j
     if forward:
