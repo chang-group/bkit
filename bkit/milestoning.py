@@ -146,20 +146,23 @@ class MarkovianMilestoningEstimator:
         for (a, b), times in lagtimes.items():
             count_matrix[ix[a], ix[b]] = len(times)
             total_times[ix[a]] += sum(times)
-        total_counts = count_matrix.sum(axis=1)
         
         connected = estimation.largest_connected_set(count_matrix,
             directed=(True if self.reversible else False))
         milestones = [milestones[i] for i in connected]
-        self._count_matrix = count_matrix[connected, :][:, connected]
-        self._total_times = total_times[connected]
-        self._total_counts = total_counts[connected]
+        count_matrix = count_matrix[connected, :][:, connected]
+        total_counts = count_matrix.sum(axis=1)
+        total_times = total_times[connected]
 
         K = estimation.transition_matrix(
             count_matrix, reversible=self.reversible)
         np.fill_diagonal(K, 0)
         t = total_times / total_counts
         self._model = MarkovianMilestoningModel(K, t, milestones)
+
+        self._count_matrix = count_matrix
+        self._total_counts = total_counts
+        self._total_times = total_times
 
         return self
 
