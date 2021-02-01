@@ -1,0 +1,29 @@
+bkit package
+============
+
+Submodules
+----------
+
+bkit.ctmc module
+------------------
+
+.. automodule:: bkit.ctmc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+bkit.milestoning module
+-----------------------
+
+.. automodule:: bkit.milestoning
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Module contents
+---------------
+
+.. automodule:: bkit
+   :members:
+   :undoc-members:
+   :show-inheritance:
