@@ -1,3 +1,5 @@
+"""Algorithms for working with continuous-time Markov chains."""
+
 import numpy as np
 import msmtools.analysis as msmana
 import msmtools.flux
@@ -193,7 +195,8 @@ class ContinuousTimeMarkovChain:
 
 
 def embedded_tmatrix(rate_matrix):
-    """Embedded transition matrix of a continuous-time Markov chain.
+    """Transition matrix of the embedded chain of a continuous-time
+    Markov chain.
 
     Parameters
     ----------
@@ -204,7 +207,7 @@ def embedded_tmatrix(rate_matrix):
     -------
     (M, M) ndarray
         Transition matrix of the embedded chain of the continuous-time
-        Markov chain with rate matrix `rate_matrix`.
+        Markov chain `rate_matrix`.
 
     """
     rate_matrix = np.asarray(rate_matrix)
