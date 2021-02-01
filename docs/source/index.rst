@@ -7,9 +7,7 @@ BKiT - Binding Kinetics Toolkit
 ===============================
 
 BKiT is a Python package for analysis of molecular dynamics (MD)
-data using the milestoning framework. Currently, BKiT facilitates the 
-estimation of *Markovian* milestoning models from *existing* MD
-trajectory data.
+trajectories using the milestoning framework.
 
 
 .. toctree::
