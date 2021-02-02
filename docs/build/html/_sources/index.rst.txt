@@ -3,20 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-BKiT
-====
+BKiT - Binding Kinetics Toolkit
+===============================
 
-BKiT is a Python package for estimation and analysis of (Markovian) 
-milestoning models. It is built on the 
-`MSMTools <https://msmtools.readthedocs.io>`_ library.
+BKiT is a Python package for analysis of molecular dynamics (MD)
+trajectories using the milestoning framework.
 
-Documentation
-=============
 
 .. toctree::
    :maxdepth: 2
 
-   api/index
+   modules
 
 Indices and tables
 ==================

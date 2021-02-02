@@ -5,7 +5,7 @@ Submodules
 ----------
 
 bkit.ctmc module
-------------------
+----------------
 
 .. automodule:: bkit.ctmc
    :members:
