@@ -80,21 +80,24 @@ class MarkovianMilestoningEstimator:
         Parameters
         ----------
         data : iterable of Sequence[tuple[frozenset, int]], dict
-            Milestone schedules, i.e., sequences of (milestone index, 
-            lifetime) pairs, or a mapping from ordered pairs of 
-            milestone indices to collections of lag times.
+            Milestone schedules, or a mapping from ordered pairs of 
+            milestone indices to lists of first passage times.
 
         Returns
         -------
         self : MarkovianMilestoningEstimator
             Reference to self.
 
+        See Also
+        --------
+        fit_to_schedules, fit_to_fpts
+
         """
         if isinstance(data, dict):
-            return self.fit_from_lagtimes(data)
-        return self.fit_from_schedules(data)
+            return self.fit_to_fpts(data)
+        return self.fit_to_schedules(data)
 
-    def fit_from_schedules(self, schedules):
+    def fit_to_schedules(self, schedules):
         """Fit estimator to milestone schedule data.
 
         Parameters
@@ -109,25 +112,25 @@ class MarkovianMilestoningEstimator:
         self : MarkovianMilestoningEstimator
             Reference to self.
 
-        """ 
-        lagtimes = collections.defaultdict(list)
+        """
+        first_passage_times = collections.defaultdict(list)
         for schedule in schedules:
             a, t = schedule[0]
             for b, s in schedule[1:]:
                 if -1 not in a and -1 not in b:
-                    lagtimes[a, b].append(t)
+                    first_passage_times[a, b].append(t)
                 a, t = b, s
-        return self.fit_from_lagtimes(lagtimes)
+        return self.fit_to_fpts(first_passage_times)
 
-    def fit_from_lagtimes(self, lagtimes):
-        """Fit estimator to lagtime data.
+    def fit_to_fpts(self, first_passage_times):
+        """Fit estimator to first passage time data.
 
         Parameters
         ----------
-        lagtimes : dict
-            Mapping from ordered pairs of milestones to lag times:
-            `lagtimes[a, b]` is a list of lag times for transitions 
-            from source milestone `a` to target milestone `b`. 
+        first_passage_times : dict
+            Mapping from ordered pairs of milestones to first passage 
+            times: `first_passage_times[a, b]` is a list of first 
+            passage times from from milestone `a` to milestone `b`. 
 
         Returns
         -------
@@ -135,15 +138,15 @@ class MarkovianMilestoningEstimator:
             Reference to self.
 
         """
-        milestones = sorted(
-            ({a for a, b in lagtimes} | {b for a, b in lagtimes}), 
-            key=lambda a: sorted(a))
+        milestones = ({a for a, _ in first_passage_times}
+                      | {b for _, b in first_passage_times})
+        milestones = sorted(milestones, key=lambda a: sorted(a))
         ix = {a: i for i, a in enumerate(milestones)}
         m = len(milestones)
 
         count_matrix = np.zeros((m, m), dtype=int)
         total_times = np.zeros(m)
-        for (a, b), times in lagtimes.items():
+        for (a, b), times in first_passage_times.items():
             count_matrix[ix[a], ix[b]] = len(times)
             total_times[ix[a]] += sum(times)
         
