@@ -29,23 +29,23 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def transition_kernel(self):
-        """ndarray: Milestone-to-milestone transition probabilities."""
+        """(M, M) ndarray: Transition probability kernel."""
         return self.embedded_tmatrix
 
     @property
     def mean_lifetimes(self):
-        """ndarray: Mean lifetime of each milestone."""
+        """(M,) ndarray: Mean lifetime of each milestone."""
         return 1 / self.jump_rates
 
     @property
     def stationary_flux(self):
-        """ndarray: Stationary flux vector, normalized to 1."""
+        """(M,) ndarray: Stationary flux vector, normalized to 1."""
         q = self.stationary_distribution * self.jump_rates
         return q / q.sum()
 
     @property
     def stationary_probability(self):
-        """ndarray: Stationary probability vector, normalized to 1."""
+        """(M,) ndarray: Stationary probability vector."""
         return self.stationary_distribution
 
 
