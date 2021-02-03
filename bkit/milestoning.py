@@ -1,3 +1,5 @@
+"""Tools for estimation and analysis of Markovian milestoning models."""
+
 import collections
 import msmtools.estimation as estimation
 import msmtools.util.types
@@ -7,19 +9,20 @@ import bkit.ctmc as ctmc
 
 
 class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
-    """Milestoning process governed by a continuous-time Markov chain.
+    """A milestoning process governed by a continuous-time Markov chain.
 
     Parameters
     ----------
     transition_kernel : (M, M) array_like
-        Transition probability kernel. Must be a row stochastic matrix 
-        with all diagonal elements equal to zero.
+        Matrix of milestone-to-milestone transition probabilities. Must 
+        be a row stochastic matrix (each row sums to 1) with all zeros on
+        the diagonal. 
 
     mean_lifetimes : (M,) array_like
-        Average milestone lifetimes, positive (>0).
+        Vector of average milestone lifetimes.
 
     milestones : sequence
-        Milestone indices. Values must be unique and hashable.
+        Milestone labels. Values must be unique and hashable.
            
     """
 
@@ -50,7 +53,8 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
 
 class MarkovianMilestoningEstimator:
-    """Estimator for Markovian milestoning models.
+    """Maximum likelihood and Bayesian estimation of Markovian 
+    milestoning models.
         
     Parameters
     ----------
@@ -75,13 +79,13 @@ class MarkovianMilestoningEstimator:
         return self._model
 
     def fit(self, data):
-        """Fit estimator to coarse-grained trajectory data.
+        """Fit the estimator to data.
 
         Parameters
         ----------
-        data : iterable of Sequence[tuple[frozenset, int]], dict
-            Milestone schedules, or a mapping from ordered pairs of 
-            milestone indices to lists of first passage times.
+        data : iterable of Sequence[tuple] or dict[tuple, Collection]
+            Milestone schedules, or a mapping from pairs of milestone 
+            indices to samples of first passage times (FPTs).
 
         Returns
         -------
@@ -98,14 +102,14 @@ class MarkovianMilestoningEstimator:
         return self.fit_to_schedules(data)
 
     def fit_to_schedules(self, schedules):
-        """Fit estimator to milestone schedule data.
+        """Fit the estimator to milestone schedule data.
 
         Parameters
         ----------
         schedules : iterable of Sequence[tuple[frozenset, int]]
-            Sequences of (milestone index, lifetime) pairs obtained by 
-            trajectory decomposition. Transitions to or from milestones 
-            bordering unassigned cells (index -1) are ignored.
+            Sequences of (milestone index, lifetime) pairs. *Note:*
+            No transition statistics will be computed for milestones
+            bordering unassigned cells (index -1).
 
         Returns
         -------
@@ -123,14 +127,15 @@ class MarkovianMilestoningEstimator:
         return self.fit_to_fpts(first_passage_times)
 
     def fit_to_fpts(self, first_passage_times):
-        """Fit estimator to first passage time data.
+        """Fit the estimator to first passage time data.
 
         Parameters
         ----------
-        first_passage_times : dict
-            Mapping from ordered pairs of milestones to first passage 
-            times: `first_passage_times[a, b]` is a list of first 
-            passage times from from milestone `a` to milestone `b`. 
+        first_passage_times : dict[tuple, Collection]
+            Mapping from ordered pairs of milestone indices to samples
+            of first passage times. `first_passage_times[a, b]` is 
+            a collection of first passage times from from milestone `a` 
+            to milestone `b`.
 
         Returns
         -------
@@ -169,18 +174,18 @@ class MarkovianMilestoningEstimator:
 
         return self
 
-    def sample_posterior(self, n_samples=100):
+    def sample_posterior(self, n_models=100):
         """Sample models from the posterior distribution.
 
         Parameters
         ----------
-        n_samples : int, optional
-            Number of samples to draw.
+        n_models : int, optional
+            The sample size, i.e., the number of models to generate.
 
         Returns
         -------
-        samples : list of MarkovianMilestoningModel
-            Sampled models, or :code:`None` if the estimator has not 
+        models : list of MarkovianMilestoningModel
+            Sampled models, or ``None`` if the estimator has not 
             been fit.
 
         """
@@ -190,21 +195,21 @@ class MarkovianMilestoningEstimator:
         sampler = estimation.tmatrix_sampler(
             self._count_matrix, reversible=self.reversible,
             T0=self._model.transition_kernel)
-        Ks = sampler.sample(nsamples=n_samples)
+        Ks = sampler.sample(nsamples=n_models)
         for K in Ks:
             np.fill_diagonal(K, 0)
 
         rng = np.random.default_rng()
-        vs = np.zeros((n_samples, self._model.n_states))
+        vs = np.zeros((n_models, self._model.n_states))
         for i, (n, r) in enumerate(zip(self._total_counts, self._total_times)):
-            vs[:, i] = rng.gamma(n, scale=1/r, size=n_samples)
+            vs[:, i] = rng.gamma(n, scale=1/r, size=n_models)
 
         return [MarkovianMilestoningModel(K, 1/v, self._model.states) 
                 for K, v in zip(Ks, vs)]
 
 
-class CoarseGraining:
-    """Mapping from space-continuous dynamics to milestoning dynamics.
+class TrajectoryColoring:
+    """Mapping from continuous-space dynamics to milestoning dynamics.
         
     Parameters
     ----------
@@ -292,18 +297,18 @@ class CoarseGraining:
         self._forward = bool(value)
 
     def transform(self, trajs):
-        """Map space-continuous dynamics to milestoning dynamics.
+        """Color trajectories according to milestone state.
 
         Parameters
         ----------
         trajs : (T, d) array_like or list of (T_i, d) array_like
-            Trajectories to be coarse grained. 
+            Trajectories in `d`-dimensional space. (The trajectory lengths
+            `T_i` may differ.)
 
         Returns
         -------
         schedules : list of Sequence[tuple[frozenset, int]]
-            Sequences of (milestone index, lifetime) pairs obtained by
-            "coloring" each trajectory according to its milestone state.
+            Sequences of (milestone index, lifetime) pairs.
 
         """
         trajs = msmtools.util.types.ensure_traj_list(trajs)
@@ -322,13 +327,13 @@ class CoarseGraining:
  
 
 def dtraj_to_milestone_schedule(dtraj, forward=False):
-    """Map cell-based dynamics to milestoning dynamics.
+    """Map a discrete-state trajectory to a milestone schedule.
 
     Parameters
     ----------
     dtraj : sequence of int
-        A discrete trajectory, e.g., a sequence of cell or cluster 
-        indices. The index -1 is reserved to indicate "undefined".
+        A discrete-state trajectory, e.g., a sequence of cell or cluster
+        indices. The index -1 is reserved to indicate an undefined state.
 
     forward : bool, optional
         If true, track the next milestone hit (forward commitment),
@@ -337,10 +342,10 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
     Returns
     -------
     Sequence[tuple[frozenset, int]]
-        Sequence of (milestone index, lifetime) pairs. For ordinary 
-        milestoning, the initial milestone index is set to 
-        :code:`frozenset({-1, dtraj[0]})`. For forward milestoning, the 
-        final milestone is set to :code:`frozenset({dtraj[-1], -1})`.
+        A sequence of (milestone index, lifetime) pairs. When `forward` 
+        is false (ordinary milestoning), the initial milestone index is
+        set to ``frozenset({-1, dtraj[0]})``. When `forward` is true, the
+        final milestone index is set to ``frozenset({dtraj[-1], -1})``.
  
     """
     dtraj = msmtools.util.types.ensure_dtraj(dtraj)

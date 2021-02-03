@@ -1,5 +1,24 @@
-.. automodule:: bkit.milestoning
+=====================================
+Milestoning (:mod:`bkit.milestoning`)
+=====================================
 
-.. toctree::
-   :maxdepth: 1
+.. currentmodule:: bkit.milestoning
+
+Trajectory preprocessing
+========================
+
+.. autosummary::
+   :toctree: generated/
+
+   TrajectoryColoring
+   dtraj_to_milestone_schedule
+
+Markovian milestoning
+=====================
+
+.. autosummary::
+   :toctree: generated/
+
+   MarkovianMilestoningEstimator
+   MarkovianMilestoningModel
 

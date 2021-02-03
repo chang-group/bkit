@@ -1,4 +1,4 @@
-"""Algorithms for working with continuous-time Markov chains."""
+"""Algorithms for analysis of continuous-time Markov chains."""
 
 import numpy as np
 import msmtools.analysis as msmana
@@ -31,7 +31,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def rate_matrix(self):
-        """ndarray: Transition rate matrix (infinitesimal generator)."""
+        """(M, M) ndarray: Transition rate matrix."""
         return self._rate_matrix
 
     @rate_matrix.setter
@@ -43,7 +43,7 @@ class ContinuousTimeMarkovChain:
     
     @property
     def stationary_distribution(self): 
-        """ndarray: Stationary distribution, normalized to 1."""
+        """(M,) ndarray: Stationary distribution."""
         return self._statdist
 
     @stationary_distribution.setter
@@ -58,13 +58,13 @@ class ContinuousTimeMarkovChain:
         self._statdist = np.asarray(value) / np.sum(value)
 
     @property
-    def embedded_tmatrix(self):
-        """ndarray: Transition matrix of the embedded chain."""
-        return embedded_tmatrix(self.rate_matrix)
+    def jump_matrix(self):
+        """(M, M) ndarray: Transition matrix of the embedded Markov chain."""
+        return jump_matrix(self.rate_matrix)
 
     @property
     def jump_rates(self):
-        """ndarray: Rate parameters."""
+        """(M,) ndarray: Total transition rate out of each state."""
         return -self.rate_matrix.diagonal()
 
     @property
@@ -122,7 +122,7 @@ class ContinuousTimeMarkovChain:
             Vector of committor probabilities.
 
         """
-        return msmana.committor(self.embedded_tmatrix, source, target, 
+        return msmana.committor(self.jump_matrix, source, target, 
                                 forward=forward)
 
     def expectation(self, observable):
@@ -194,9 +194,8 @@ class ContinuousTimeMarkovChain:
             mu=self.stationary_distribution, qminus=qminus, qplus=qplus)
 
 
-def embedded_tmatrix(rate_matrix):
-    """Transition matrix of the embedded chain of a continuous-time
-    Markov chain.
+def jump_matrix(rate_matrix):
+    """Extract the jump probabilities from a rate matrix.
 
     Parameters
     ----------
@@ -206,60 +205,59 @@ def embedded_tmatrix(rate_matrix):
     Returns
     -------
     (M, M) ndarray
-        Transition matrix of the embedded chain of the continuous-time
-        Markov chain `rate_matrix`.
+        The jump matrix (embedded transition matrix) of the 
+        continuous-time Markov chain `rate_matrix`.
 
     """
     rate_matrix = np.asarray(rate_matrix)
     if not msmana.is_rate_matrix(rate_matrix):
           raise ValueError('matrix must be row infinitesimal stochastic')
     jump_rates = -rate_matrix.diagonal()
-    embedded_tmatrix = rate_matrix / jump_rates[:, np.newaxis]
-    np.fill_diagonal(embedded_tmatrix, 0)
-    return embedded_tmatrix
+    jump_matrix = rate_matrix / jump_rates[:, np.newaxis]
+    np.fill_diagonal(jump_matrix, 0)
+    return jump_matrix
 
 
-def rate_matrix(embedded_tmatrix, jump_rates):
-    """Transition rate matrix of the continuous-time Markov chain with
-    given embedded chain and jump rates.
+def rate_matrix(jump_matrix, jump_rates):
+    """Return the rate matrix with given jump probabilities and rates.
 
     Parameters
     ----------
-    embedded_tmatrix : (M, M) array_like
-        Transition matrix of the embedded discrete-time Markov chain. 
-        Must be row stochastic with diagonal elements all equal to zero.
+    jump_matrix : (M, M) array_like
+        Jump probability matrix (embedded transition matrix). Must be 
+        row stochastic with all zeros on the diagonal.
 
     jump_rates : (M,) array_like
-        Exponential rate parameters.
+        Total transition rate out of each state.
 
     Returns
     -------
     (M, M) ndarray
-        Rate matrix of the continuous-time Markov chain with embedded 
-        chain `embedded_tmatrix` and jump rates `jump_rates`.
+        The transition rate matrix of the continuous-time Markov chain
+        with the given jump matrix (embedded chain) and jump rates.
 
     """
-    embedded_tmatrix = np.asarray(embedded_tmatrix)
-    if not msmana.is_tmatrix(embedded_tmatrix):
+    jump_matrix = np.asarray(jump_matrix)
+    if not msmana.is_tmatrix(jump_matrix):
         raise ValueError('matrix must be row stochastic')
-    if np.count_nonzero(embedded_tmatrix.diagonal()):
+    if np.count_nonzero(jump_matrix.diagonal()):
         raise ValueError('diagonal elements must be equal to zero')
 
     jump_rates = np.asarray(jump_rates)
-    if jump_rates.shape != (embedded_tmatrix.shape[0],):
+    if jump_rates.shape != (jump_matrix.shape[0],):
         msg = 'number of jump rates must match number of states'
         raise ValueError(msg)
     if not (jump_rates > 0).all():
         raise ValueError('jump rates must be positive')
     
-    rate_matrix = jump_rates[:, np.newaxis] * embedded_tmatrix
+    rate_matrix = jump_rates[:, np.newaxis] * jump_matrix
     rate_matrix[np.diag_indices_from(rate_matrix)] = -jump_rates
 
     return rate_matrix
 
 
 def stationary_distribution(rate_matrix):
-    """Stationary distribution of a transition rate matrix..
+    """Compute the stationary distribution of a rate matrix.
 
     Parameters
     ----------
@@ -269,10 +267,10 @@ def stationary_distribution(rate_matrix):
     Returns
     -------
     (M,) ndarray
-        Stationary distribution of `rate_matrix`, normalized to 1.
+        Stationary distribution of `rate_matrix`.
 
     """
-    P = embedded_tmatrix(rate_matrix)
+    P = jump_matrix(rate_matrix)
     mu = -msmana.stationary_distribution(P) / np.diagonal(rate_matrix)
     return mu / mu.sum()
 
