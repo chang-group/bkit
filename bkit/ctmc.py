@@ -11,7 +11,7 @@ class ContinuousTimeMarkovChain:
     Parameters
     ----------
     rate_matrix: (M, M) array_like
-        Transition rate matrix, row infinitesimal stochastic.
+        A transition rate matrix, with row sums equal to zero.
 
     stationary_distribution : (M,) array_like, optional
         Stationary distribution. Must be invariant with respect to the
@@ -195,18 +195,18 @@ class ContinuousTimeMarkovChain:
 
 
 def jump_matrix(rate_matrix):
-    """Extract the jump matrix from a rate matrix.
+    """Extract the jump probabilities from a rate matrix.
 
     Parameters
     ----------
     rate_matrix : (M, M) array_like
-        Transition rate matrix, row infinitesimal stochastic.
+        A transition rate matrix, with row sums equal to zero.
 
     Returns
     -------
     (M, M) ndarray
-        The jump matrix (embedded transition matrix) of the
-        continuous-time Markov chain `rate_matrix`.
+        The jump matrix (embedded transition matrix) derived from 
+        `rate_matrix`.
 
     """
     rate_matrix = np.asarray(rate_matrix)
@@ -219,16 +219,16 @@ def jump_matrix(rate_matrix):
 
 
 def rate_matrix(jump_matrix, jump_rates):
-    """Return the rate matrix with given jump matrix and jump rates.
+    """Return a rate matrix with given jump matrix and jump rates.
 
     Parameters
     ----------
     jump_matrix : (M, M) array_like
-        Jump probability matrix (embedded transition matrix). Must be 
+        A jump probability matrix (embedded transition matrix). Must be 
         row stochastic with all zeros on the diagonal.
 
     jump_rates : (M,) array_like
-        Total transition rate out of each state.
+        The total transition rate out of each state.
 
     Returns
     -------
@@ -262,12 +262,12 @@ def stationary_distribution(rate_matrix):
     Parameters
     ----------
     rate_matrix : (M, M) array_like
-        Transition rate matrix, row infinitesimal stochastic.
+        A transition rate matrix, with row sums equal to zero.
 
     Returns
     -------
     (M,) ndarray
-        Stationary distribution of `rate_matrix`.
+        The stationary distribution of `rate_matrix`.
 
     """
     P = jump_matrix(rate_matrix)
