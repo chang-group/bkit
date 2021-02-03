@@ -7,8 +7,9 @@ BKiT
 ====
 
 BKiT is a Python package for estimation and analysis of (Markovian) 
-milestoning models. It is built on the 
-`MSMTools <https://msmtools.readthedocs.io>`_ library.
+milestoning models. It relies heavily on the functionality of the 
+`MSMTools <https://msmtools.readthedocs.io>`_ library for low-level
+computations.
 
 Documentation
 =============
