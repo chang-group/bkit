@@ -214,7 +214,7 @@ class TrajectoryColoring:
     Parameters
     ----------
     anchors : (N, d) array_like
-        Generating points of the Voronoi tessellation.
+        Generating points for Voronoi tessellation.
 
     parent_cell : (N,) array_like of int, optional
         The cell index associated with each anchor. Can be used to 
@@ -245,7 +245,7 @@ class TrajectoryColoring:
 
     @property
     def anchors(self):
-        """(N, d) ndarray: Generating points for Voronoi tessellation."""
+        """(N, d) ndarray: Generating points of the Voronoi tessellation."""
         return self._kdtree.data
 
     @property
