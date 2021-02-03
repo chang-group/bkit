@@ -195,7 +195,7 @@ class ContinuousTimeMarkovChain:
 
 
 def jump_matrix(rate_matrix):
-    """Extract the jump probabilities from a rate matrix.
+    """Extract the jump matrix from a rate matrix.
 
     Parameters
     ----------
@@ -205,7 +205,7 @@ def jump_matrix(rate_matrix):
     Returns
     -------
     (M, M) ndarray
-        The jump matrix (embedded transition matrix) of the 
+        The jump matrix (embedded transition matrix) of the
         continuous-time Markov chain `rate_matrix`.
 
     """
@@ -219,7 +219,7 @@ def jump_matrix(rate_matrix):
 
 
 def rate_matrix(jump_matrix, jump_rates):
-    """Return a rate matrix with given jump matrix and jump rates.
+    """Return the rate matrix with given jump matrix and jump rates.
 
     Parameters
     ----------
