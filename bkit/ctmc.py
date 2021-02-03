@@ -219,7 +219,7 @@ def jump_matrix(rate_matrix):
 
 
 def rate_matrix(jump_matrix, jump_rates):
-    """Return the rate matrix with given jump probabilities and rates.
+    """Return a rate matrix with given jump matrix and jump rates.
 
     Parameters
     ----------
