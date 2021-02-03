@@ -32,7 +32,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def transition_kernel(self):
-        """(M, M) ndarray: Transition probability kernel."""
+        """(M, M) ndarray: Alias for `jump_matrix`."""
         return self.embedded_tmatrix
 
     @property
@@ -48,7 +48,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def stationary_probability(self):
-        """(M,) ndarray: Stationary probability vector."""
+        """(M,) ndarray: Alias for `stationary_distribution`."""
         return self.stationary_distribution
 
 
