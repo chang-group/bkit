@@ -93,7 +93,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def n_states(self):
-        """int: The number of states."""
+        """int: Number of states."""
         return self.rate_matrix.shape[0]
 
     @property

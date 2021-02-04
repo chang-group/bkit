@@ -32,12 +32,12 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def transition_kernel(self):
-        """(M, M) ndarray: Alias for `jump_matrix`."""
-        return self.embedded_tmatrix
+        """(M, M) ndarray: Alias for ``jump_matrix``."""
+        return self.jump_matrix
 
     @property
     def mean_lifetimes(self):
-        """(M,) ndarray: Mean lifetime of each milestone."""
+        """(M,) ndarray: Reciprocal of ``jump_rates``."""
         return 1 / self.jump_rates
 
     @property
@@ -48,7 +48,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def stationary_probability(self):
-        """(M,) ndarray: Alias for `stationary_distribution`."""
+        """(M,) ndarray: Alias for ``stationary_distribution``."""
         return self.stationary_distribution
 
 
