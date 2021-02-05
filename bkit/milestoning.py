@@ -83,7 +83,7 @@ class MarkovianMilestoningEstimator:
 
         """
         return self._model
-
+    
     @property
     def count_matrix(self):
         ...
@@ -192,18 +192,18 @@ class MarkovianMilestoningEstimator:
 
         return self
 
-    def sample_posterior(self, n_models=100):
-        """Sample models from the posterior distribution.
+    def posterior_sample(self, size=100):
+        """Generate a sample from the posterior distribution.
 
         Parameters
         ----------
-        n_models : int, optional
+        size : int, optional
             The sample size, i.e., the number of models to generate.
 
         Returns
         -------
-        models : list of MarkovianMilestoningModel
-            Sampled models, or ``None`` if the estimator has not 
+        Collection[MarkovianMilestoningModel]
+            The sampled models, or ``None`` if the estimator has not 
             been fit.
 
         """
@@ -213,14 +213,14 @@ class MarkovianMilestoningEstimator:
         sampler = estimation.tmatrix_sampler(
             self._count_matrix, reversible=self.reversible,
             T0=self._model.transition_kernel)
-        Ks = sampler.sample(nsamples=n_models)
+        Ks = sampler.sample(nsamples=size)
         for K in Ks:
             np.fill_diagonal(K, 0)
 
         rng = np.random.default_rng()
-        vs = np.zeros((n_models, self._model.n_states))
+        vs = np.zeros((size, self._model.n_states))
         for i, (n, r) in enumerate(zip(self._total_counts, self._total_times)):
-            vs[:, i] = rng.gamma(n, scale=1/r, size=n_models)
+            vs[:, i] = rng.gamma(n, scale=1/r, size=size)
 
         return [MarkovianMilestoningModel(K, 1/v, self._model.states) 
                 for K, v in zip(Ks, vs)]
