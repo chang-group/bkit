@@ -17,12 +17,10 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         Matrix of milestone-to-milestone transition probabilities. Must 
         be a row stochastic matrix (each row sums to 1) with all zeros on
         the diagonal. 
-
     mean_lifetimes : (M,) array_like
         Vector of average milestone lifetimes.
-
     milestones : sequence
-        Milestone labels. Values must be unique and hashable.
+        List of milestone labels. Values must be unique and hashable.
            
     """
 
@@ -32,12 +30,12 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def transition_kernel(self):
-        """(M, M) ndarray: Alias for ``jump_matrix``."""
+        """(M, M) ndarray: Alias for self.jump_matrix."""
         return self.jump_matrix
 
     @property
     def mean_lifetimes(self):
-        """(M,) ndarray: Reciprocal of ``jump_rates``."""
+        """(M,) ndarray: Reciprocal of self.jump_rates."""
         return 1 / self.jump_rates
 
     @property
@@ -48,7 +46,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def stationary_probability(self):
-        """(M,) ndarray: Alias for ``stationary_distribution``."""
+        """(M,) ndarray: Alias for self.stationary_distribution."""
         return self.stationary_distribution
 
 
@@ -59,28 +57,51 @@ class MarkovianMilestoningEstimator:
     Parameters
     ----------
     reversible : bool, optional
-        If True, restrict the space of transition matrices to those 
+        If true, restrict the space of transition matrices to those 
         satisfying detailed balance.
 
     """
 
     def __init__(self, reversible=True):
-        self._reversible = bool(reversible)
+        self.reversible = bool(reversible)
         self._model = None
 
     @property
     def reversible(self):
-        """bool: If True, perform reversible estimation."""
+        """bool: Whether to perform reversible estimation."""
         return self._reversible
 
+    @reversible.setter
+    def reversible(self, value):
+        self._reversible = bool(value)
+
     def max_likelihood_estimate(self):
-        """Return the maximum likelihood estimate.
+        r"""Return the maximum likelihood estimate.
 
         Returns
         -------
         MarkovianMilestoningModel
             The model that maximizes the likelihood of the data.
 
+        Notes
+        -----
+        The transition probability kernel :math:`K` is estimated from
+        the transition count matrix :math:`N` by maximizing the likelihood 
+
+        .. math:: \mathbb{P}(N \mid K) \propto \prod_a \left(
+                    \prod_b K_{ab}^{N_{ab}}\right).
+
+        In the nonreversible case, this gives the estimate 
+        :math:`\hat{K}_{ab}=N_{ab}/N_a`, where :math:`N_a=\sum_{b}N_{ab}`
+        is the total number of transitions from source milestone 
+        :math:`a`. In the reversible case, the maximization is subject to 
+        the constraint that :math:`q_a K_{ab}=q_b K_{ba}` for some flux 
+        vector :math:`q`.
+
+        The mean lifetime of milestone :math:`a` is estimated as
+        :math:`\hat{\tau}_a=T_a/N_a`, where :math:`T_a` is the total time 
+        spent in milestone state :math:`a`.
+        
         """
         return self._model
     
@@ -227,30 +248,28 @@ class MarkovianMilestoningEstimator:
 
 
 class TrajectoryColoring:
-    """Mapping from continuous-space dynamics to milestoning dynamics.
+    """Mapping from continuous trajectories to milestone schedules.
+
+    The mapping is determined by a Voronoi partition of the state space.
         
     Parameters
     ----------
     anchors : (N, d) array_like
         Generating points for Voronoi tessellation.
-
     parent_cell : (N,) array_like of int, optional
         The cell index associated with each anchor. Can be used to 
         define a Voronoi diagram with sites that are sets of anchors
-        rather than single anchors. Will default to :code:`range(N)`
-        if not provided. 
-
+        rather than single anchors. Default is range(N).
     boxsize : (d,) array_like or scalar, optional
         Apply `d`-dimensional toroidal topology (periodic boundary 
         conditions).
-
     cutoff : positive float, optional
         Maximum distance to the nearest anchor. The region of state space
         outside the cutoff is treated as a cell with index -1.
-
     forward : bool, optional
-        If true, track the next milestone hit (forward commitment),
-        rather than the last milestone hit (backward commitment).
+        If True, track the next milestone hit (forward commitment),
+        rather than the last milestone hit (backward commitment). Default
+        is False.
 
     """
 
@@ -320,8 +339,8 @@ class TrajectoryColoring:
         Parameters
         ----------
         trajs : (T, d) array_like or list of (T_i, d) array_like
-            Trajectories in `d`-dimensional space. (The trajectory lengths
-            `T_i` may differ.)
+            Trajectories in `d`-dimensional space. The trajectory lengths
+            `T_i` may differ.
 
         Returns
         -------
@@ -330,21 +349,21 @@ class TrajectoryColoring:
 
         """
         trajs = msmtools.util.types.ensure_traj_list(trajs)
-        return [self._traj_to_milestone_schedule(traj) for traj in trajs]
+        return [self._color(traj) for traj in trajs]
 
     def __call__(self, trajs):
         return self.transform(trajs)
 
-    def _traj_to_milestone_schedule(self, traj):
+    def _color(self, traj):
         dtraj = self._assign_cells(traj)
-        return dtraj_to_milestone_schedule(dtraj, forward=self.forward)
+        return color_discrete_trajectory(dtraj, forward=self.forward)
     
     def _assign_cells(self, x):
         _, k = self._kdtree.query(x, distance_upper_bound=self.cutoff)
         return self.parent_cell[k]
  
 
-def dtraj_to_milestone_schedule(dtraj, forward=False):
+def color_discrete_trajectory(dtraj, forward=False):
     """Map a discrete-state trajectory to a milestone schedule.
 
     Parameters
@@ -352,7 +371,6 @@ def dtraj_to_milestone_schedule(dtraj, forward=False):
     dtraj : sequence of int
         A discrete-state trajectory, e.g., a sequence of cell or cluster
         indices. The index -1 is reserved to indicate an undefined state.
-
     forward : bool, optional
         If true, track the next milestone hit (forward commitment),
         rather than the last milestone hit (backward commitment).

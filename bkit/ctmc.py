@@ -11,16 +11,15 @@ class ContinuousTimeMarkovChain:
     Parameters
     ----------
     rate_matrix: (M, M) array_like
-        A transition rate matrix, with row sums equal to zero.
-
+        A transition rate (infinitesimal generator) matrix, with row sums
+        equal to zero.
     stationary_distribution : (M,) array_like, optional
         Stationary distribution. Must be invariant with respect to the
-        given rate matrix. If not provided, the stationary distribution
-        will be computed from the rate matrix.
-
+        rate matrix. If not provided, the stationary distribution will be
+        computed from the rate matrix.
     states : sequence, optional
         State labels. Values must be unique and hashable. Will default 
-        to ``range(M)`` if not provided.
+        to range(M) if not provided.
  
     """
 
@@ -31,7 +30,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def rate_matrix(self):
-        """(M, M) ndarray: Transition rate matrix."""
+        """(M, M) ndarray: Infinitesimal generator matrix."""
         return self._rate_matrix
 
     @rate_matrix.setter
@@ -75,7 +74,7 @@ class ContinuousTimeMarkovChain:
     
     @property
     def states(self):
-        """list: State labels."""
+        """list: List of state labels."""
         return self._states
 
     @states.setter
@@ -93,7 +92,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def n_states(self):
-        """int: Number of states."""
+        """int: The number of states."""
         return self.rate_matrix.shape[0]
 
     @property
@@ -108,10 +107,8 @@ class ContinuousTimeMarkovChain:
         ----------
         source : list of int
             Indices of the source states.
-
         target : list of int
             Indices of the target states.
-
         forward : bool, optional
             If true, compute the forward committor (default). If false,
             compute the backward committor.
@@ -170,7 +167,6 @@ class ContinuousTimeMarkovChain:
         ----------
         source : list of int
             Indices of the source states.
-
         target : list of int
             Indices of the target states.
 
@@ -219,14 +215,13 @@ def jump_matrix(rate_matrix):
 
 
 def rate_matrix(jump_matrix, jump_rates):
-    """Return a rate matrix with given jump matrix and jump rates.
+    """Return a rate matrix with given jump probabilities and jump rates.
 
     Parameters
     ----------
     jump_matrix : (M, M) array_like
         A jump probability matrix (embedded transition matrix). Must be 
         row stochastic with all zeros on the diagonal.
-
     jump_rates : (M,) array_like
         The total transition rate out of each state.
 
