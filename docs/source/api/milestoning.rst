@@ -11,7 +11,7 @@ Trajectory preprocessing
    :toctree: generated/
 
    TrajectoryColoring
-   dtraj_to_milestone_schedule
+   color_discrete_trajectory
 
 Markovian milestoning
 =====================
