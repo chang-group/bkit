@@ -73,10 +73,28 @@ class MarkovianMilestoningEstimator:
         """bool: If True, perform reversible estimation."""
         return self._reversible
 
-    @property
-    def maximum_likelihood_model(self):
-        """MarkovianMilestoningModel: Maximum likelihood model."""
+    def max_likelihood_estimate(self):
+        """Return the maximum likelihood estimate.
+
+        Returns
+        -------
+        MarkovianMilestoningModel
+            The model that maximizes the likelihood of the data.
+
+        """
         return self._model
+
+    @property
+    def count_matrix(self):
+        ...
+
+    @property
+    def total_times(self):
+        ...
+
+    @property
+    def milestones(self):
+        ...        
 
     def fit(self, data):
         """Fit the estimator to data.
