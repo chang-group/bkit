@@ -29,8 +29,13 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         super().__init__(Q, states=milestones)
 
     @property
+    def milestones(self):
+        """list: Alias self.states."""
+        return self.states
+
+    @property
     def transition_kernel(self):
-        """(M, M) ndarray: Alias for self.jump_matrix."""
+        """(M, M) ndarray: Alias self.jump_matrix."""
         return self.jump_matrix
 
     @property
@@ -46,7 +51,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def stationary_probability(self):
-        """(M,) ndarray: Alias for self.stationary_distribution."""
+        """(M,) ndarray: Alias self.stationary_distribution."""
         return self.stationary_distribution
 
 
@@ -56,10 +61,27 @@ class MarkovianMilestoningEstimator:
         
     Parameters
     ----------
-    reversible : bool, optional
-        If true, restrict the space of transition matrices to those 
-        satisfying detailed balance.
+    reversible : bool, default True
+        If True, enforce detailed balance.
 
+    Notes
+    -----
+    Detailed balance means that the transition kernel :math:`K` of the
+    milestoning model satisfies the condition 
+    :math:`q_a K_{ab} = q_b K_{ab}`, where :math:`q` is the stationary
+    flux vector.
+
+    Estimation of the transition kernel (which is the transition matrix 
+    of an embedded discrete-time Markov chain) is performed using the 
+    methods discussed by Trendelkamp-Schroer et al. [1]_ and implemented 
+    in the :mod:`msmtools.estimation` module.
+
+    References
+    ----------
+    .. [1] B. Trendelkamp-Schroer, H. Wu, F. Paul, and F. Noe. Estimation
+        and uncertainty of reversible Markov models. J. Chem. Phys. 
+        143, 174101 (2015).
+    
     """
 
     def __init__(self, reversible=True):
@@ -74,37 +96,7 @@ class MarkovianMilestoningEstimator:
     @reversible.setter
     def reversible(self, value):
         self._reversible = bool(value)
-
-    def max_likelihood_estimate(self):
-        r"""Return the maximum likelihood estimate.
-
-        Returns
-        -------
-        MarkovianMilestoningModel
-            The model that maximizes the likelihood of the data.
-
-        Notes
-        -----
-        The transition probability kernel :math:`K` is estimated from
-        the transition count matrix :math:`N` by maximizing the likelihood 
-
-        .. math:: \mathbb{P}(N \mid K) \propto \prod_a \left(
-                    \prod_b K_{ab}^{N_{ab}}\right).
-
-        In the nonreversible case, this gives the estimate 
-        :math:`\hat{K}_{ab}=N_{ab}/N_a`, where :math:`N_a=\sum_{b}N_{ab}`
-        is the total number of transitions from source milestone 
-        :math:`a`. In the reversible case, the maximization is subject to 
-        the constraint that :math:`q_a K_{ab}=q_b K_{ba}` for some flux 
-        vector :math:`q`.
-
-        The mean lifetime of milestone :math:`a` is estimated as
-        :math:`\hat{\tau}_a=T_a/N_a`, where :math:`T_a` is the total time 
-        spent in milestone state :math:`a`.
-        
-        """
-        return self._model
-    
+ 
     @property
     def count_matrix(self):
         ...
@@ -146,9 +138,9 @@ class MarkovianMilestoningEstimator:
         Parameters
         ----------
         schedules : iterable of Sequence[tuple[frozenset, int]]
-            Sequences of (milestone index, lifetime) pairs. *Note:*
-            No transition statistics will be computed for milestones
-            bordering unassigned cells (index -1).
+            Sequences of (milestone index, lifetime) pairs. Transitions 
+            to or from milestones bordering unassigned cells (index -1) 
+            are ignored.
 
         Returns
         -------
@@ -213,8 +205,42 @@ class MarkovianMilestoningEstimator:
 
         return self
 
+    def max_likelihood_estimate(self):
+        r"""Return the maximum likelihood estimate.
+
+        Returns
+        -------
+        MarkovianMilestoningModel
+            The model that maximizes the likelihood of the data.
+
+        See Also
+        --------
+        msmtools.estimation.transition_matrix :
+            Low-level function used to estimate the transition kernel.
+
+        Notes
+        -----
+        The transition kernel is estimated from the observed transition 
+        count matrix :math:`N` by maximizing the likelihood
+
+        .. math:: \mathbb{P}(N|K)\propto\prod_{a,b}K_{ab}^{N_{ab}}.
+
+        In the nonreversible case, this gives the estimate 
+        :math:`\hat{K}_{ab}=N_{ab}/N_a`, where :math:`N_a:=\sum_{b}N_{ab}` 
+        is the total number of transitions starting from milestone 
+        :math:`a`. In the reversible case, the maximization is subject to
+        the constraint of detailed balance. For details see Section III 
+        of Trendelkamp-Schroer et al. [1]_ 
+
+        The mean lifetime of milestone :math:`a` is estimated by
+        :math:`\hat{\tau}_a=T_a/N_a`, where :math:`T_a` is the total time 
+        spent in milestone state :math:`a`.
+
+        """
+        return self._model
+
     def posterior_sample(self, size=100):
-        """Generate a sample from the posterior distribution.
+        r"""Generate a sample from the posterior distribution.
 
         Parameters
         ----------
@@ -223,9 +249,29 @@ class MarkovianMilestoningEstimator:
 
         Returns
         -------
-        Collection[MarkovianMilestoningModel]
-            The sampled models, or ``None`` if the estimator has not 
-            been fit.
+        list[MarkovianMilestoningModel]
+            The sampled models.
+
+        See Also
+        --------
+        msmtools.estimation.tmatrix_sampler :
+            Low-level function used to sample transition kernels.
+
+        Notes
+        -----
+        Transition kernels are sampled from the posterior distribution
+
+        .. math:: \mathbb{P}(K|N) \propto \mathbb{P}(K)
+                                          \prod_{a,b} K_{ab}^{N_{ab}},
+
+        where the prior :math:`\mathbb{P}(K)` depends on whether detailed
+        balance is assumed. For details see Section IV of
+        Trendelkamp-Schroer et al. [1]_ Sampling is initiated from the
+        maximum likelihood estimate :math:`\hat{K}`.
+
+        The mean lifetime of milestone :math:`a` is sampled from an 
+        inverse Gamma distribution with shape :math:`N_a` and scale
+        :math:`T_a`.
 
         """
         if self._model is None:
