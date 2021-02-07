@@ -169,8 +169,8 @@ class MarkovianMilestoningEstimator:
         ----------
         first_passage_times : dict[tuple, Collection]
             Mapping from ordered pairs of milestone indices to samples
-            of first passage times. `first_passage_times[a, b]` is 
-            a collection of first passage times from from milestone `a` 
+            of first passage times. The value for key (a, b) is 
+            a collection of first passage times from milestone `a` 
             to milestone `b`.
 
         Returns
