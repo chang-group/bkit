@@ -68,7 +68,7 @@ class MarkovianMilestoningEstimator:
     -----
     Detailed balance means that the transition kernel :math:`K` of the
     milestoning model satisfies the condition 
-    :math:`q_a K_{ab} = q_b K_{ab}`, where :math:`q` is the stationary
+    :math:`q_a K_{ab} = q_b K_{ba}`, where :math:`q` is the stationary
     flux vector.
 
     Estimation of the transition kernel (which is the transition matrix 
