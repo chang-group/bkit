@@ -45,9 +45,8 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @property
     def stationary_flux(self):
-        """(M,) ndarray: Stationary flux vector, normalized to 1."""
-        q = self.stationary_distribution * self.jump_rates
-        return q / q.sum()
+        """(M,) ndarray: Stationary flux vector."""
+        return self.stationary_probability * self.jump_rates
 
     @property
     def stationary_probability(self):
@@ -114,35 +113,12 @@ class MarkovianMilestoningEstimator:
     def milestones(self):
         ...        
 
-    def fit(self, data):
-        """Fit the estimator to data.
-
-        Parameters
-        ----------
-        data : iterable of Sequence[tuple] or dict[tuple, Collection]
-            Milestone schedules, or a mapping from pairs of milestone 
-            indices to samples of first passage times (FPTs).
-
-        Returns
-        -------
-        self : MarkovianMilestoningEstimator
-            Reference to self.
-
-        See Also
-        --------
-        fit_to_schedules, fit_to_fpts
-
-        """
-        if isinstance(data, dict):
-            return self.fit_to_fpts(data)
-        return self.fit_to_schedules(data)
-
-    def fit_to_schedules(self, schedules):
+    def fit(self, schedules):
         """Fit the estimator to milestone schedule data.
 
         Parameters
         ----------
-        schedules : iterable of Sequence[tuple[frozenset, int]]
+        schedules : iterable of Sequence[tuple[frozenset, float]]
             Sequences of (milestone index, lifetime) pairs. Transitions 
             to or from milestones bordering unassigned cells (index -1) 
             are ignored.
@@ -152,33 +128,31 @@ class MarkovianMilestoningEstimator:
         self : MarkovianMilestoningEstimator
             Reference to self.
 
+        Notes
+        -----
+        For users with data in the form of individual 
+        milestone-to-milestone first-passage times, a first-passage event 
+        from milestone ``a`` to milestone ``b`` after a time ``t`` can be 
+        represented by a schedule ``[(a, t),(b, 0)]``.
+
         """
         first_passage_times = collections.defaultdict(list)
         for schedule in schedules:
             a, t = schedule[0]
             for b, s in schedule[1:]:
+                if type(a) != frozenset or type(b) != frozenset:
+                    raise TypeError('milestone indices must be frozensets')
+                if t <= 0:
+                    msg = 'nonterminal milestone lifetimes must be positive'
+                    raise ValueError(msg)
+                if t < 0:
+                    msg = 'terminal milestone lifetime must be nonnegative'
+                    raise ValueError(msg)
+
                 if -1 not in a and -1 not in b:
                     first_passage_times[a, b].append(t)
                 a, t = b, s
-        return self.fit_to_fpts(first_passage_times)
-
-    def fit_to_fpts(self, first_passage_times):
-        """Fit the estimator to first passage time data.
-
-        Parameters
-        ----------
-        first_passage_times : dict[tuple, Collection]
-            Mapping from ordered pairs of milestone indices to samples
-            of first passage times. The value for key (a, b) is 
-            a collection of first passage times from milestone `a` 
-            to milestone `b`.
-
-        Returns
-        -------
-        self : MarkovianMilestoningEstimator
-            Reference to self.
-
-        """
+        
         milestones = ({a for a, _ in first_passage_times}
                       | {b for _, b in first_passage_times})
         milestones = sorted(milestones, key=lambda a: sorted(a))
@@ -204,6 +178,7 @@ class MarkovianMilestoningEstimator:
         t = total_times / total_counts
         self._model = MarkovianMilestoningModel(K, t, milestones)
 
+        self._first_passage_times = first_passage_times
         self._count_matrix = count_matrix
         self._total_counts = total_counts
         self._total_times = total_times
@@ -296,6 +271,25 @@ class MarkovianMilestoningEstimator:
 
         return [MarkovianMilestoningModel(K, 1/v, self._model.states) 
                 for K, v in zip(Ks, vs)]
+
+    def first_passage_times(self, source, target):
+        """Sampled first passage times for each milestone pair.
+
+        Parameters
+        ----------
+        source : frozenset
+            Index of the source milestone.
+
+        target : frozenset
+            Index of the target milestone.
+
+        Returns
+        -------
+        list
+            Sampled first passage times from `source` to `target`.
+
+        """
+        return self._first_passage_times[source, target]
 
 
 class TrajectoryColoring:

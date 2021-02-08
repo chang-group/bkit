@@ -8,10 +8,11 @@ Trajectory decomposition
 ========================
 
 Mapping of continuous or discretized trajectories to 
-*milestone schedules*. A milestone schedule is a list of tuples
-:math:`[(a_0,t_0),(a_1,t_1),\cdots,(a_n,t_n)]`, 
-where :math:`a_0,a_1,\dots,a_n` are the successive milestones visited,
-and :math:`t_0,t_1,\dots,t_n` are the corresponding lifetimes.
+*milestone schedules*. 
+A milestone `schedule <https://ncatlab.org/nlab/show/schedule>`_ is a list
+of tuples :math:`[(a_0,t_0),(a_1,t_1),\cdots,(a_n,t_n)]`, where 
+:math:`a_0,a_1,\dots,a_n` are the successive milestones visited, and 
+:math:`t_0,t_1,\dots,t_n` are the corresponding lifetimes.
 
 .. autosummary::
    :toctree: generated/
