@@ -7,12 +7,10 @@ Milestoning (:mod:`bkit.milestoning`)
 Trajectory decomposition
 ========================
 
-Mapping of continuous or discrete-state trajectories to 
+Mapping of continuous or discretized trajectories to 
 *milestone schedules*. A milestone schedule is a list of tuples
-
-.. math:: [(a_0,t_0),(a_1,t_1),\cdots,(a_N,t_N)],
-
-where :math:`a_0,a_1,\dots,a_N` is the sequence of milestones visited,
+:math:`[(a_0,t_0),(a_1,t_1),\cdots,(a_N,t_N)]`, 
+where :math:`a_0,a_1,\dots,a_N` are the successive milestones visited,
 and :math:`t_0,t_1,\dots,t_n` are the corresponding lifetimes.
 
 .. autosummary::
