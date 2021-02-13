@@ -17,6 +17,7 @@ Documentation
 .. toctree::
    :maxdepth: 2
 
+   INSTALL
    api/index
 
 Indices and tables
