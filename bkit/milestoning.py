@@ -378,31 +378,26 @@ class TrajectoryColoring:
     def forward(self, value):
         self._forward = bool(value)
 
-    def transform(self, trajs):
-        """Color trajectories according to milestone state.
+    def transform(self, traj):
+        """Map a trajectory to its milestone schedule.
 
         Parameters
         ----------
-        trajs : (T, d) array_like or list of (T_i, d) array_like
-            Trajectories in `d`-dimensional space. The trajectory lengths
-            `T_i` may differ.
+        traj : sequence of (d,) array_like
+            A trajectory in `d`-dimensional space.
 
         Returns
         -------
-        schedules : list of Sequence[tuple[frozenset, int]]
-            Sequences of (milestone index, lifetime) pairs.
+        schedule : Sequence[tuple[frozenset, int]]
+            A sequence of (milestone state, lifetime) pairs.
 
         """
-        trajs = msmtools.util.types.ensure_traj_list(trajs)
-        return [self._color(traj) for traj in trajs]
+        dtraj = self._assign_cells(traj)
+        return color_discrete_trajectory(dtraj, forward=self.forward)
 
     def __call__(self, trajs):
         return self.transform(trajs)
-
-    def _color(self, traj):
-        dtraj = self._assign_cells(traj)
-        return color_discrete_trajectory(dtraj, forward=self.forward)
-    
+ 
     def _assign_cells(self, x):
         _, k = self._kdtree.query(x, distance_upper_bound=self.cutoff)
         return self.parent_cell[k]
@@ -413,26 +408,31 @@ def color_discrete_trajectory(dtraj, forward=False):
 
     Parameters
     ----------
-    dtraj : sequence of int
-        A discrete-state trajectory, e.g., a sequence of cell or cluster
-        indices. The index -1 is reserved to indicate an undefined state.
+    dtraj : sequence
+        A discrete-state trajectory, e.g., a sequence of cell indices. 
+        Values must be hashable. The value None is reserved to indicate 
+        an undefined state.
     forward : bool, optional
-        If true, track the next milestone hit (forward commitment),
-        rather than the last milestone hit (backward commitment).
+        If True, track the next milestone hit (forward commitment),
+        rather than the last milestone hit (backward commitment). Defaut 
+        is False.
 
     Returns
     -------
     Sequence[tuple[frozenset, int]]
-        A sequence of (milestone index, lifetime) pairs. When `forward` 
-        is false (ordinary milestoning), the initial milestone index is
-        set to ``frozenset({-1, dtraj[0]})``. When `forward` is true, the
-        final milestone index is set to ``frozenset({dtraj[-1], -1})``.
+        A sequence of (milestone state, lifetime) pairs. 
+
+    Notes
+    -----
+    When `forward` is False (ordinary milestoning), the initial milestone
+    state is set to ``frozenset({None, dtraj[0]})``. When `forward` is
+    True, the final milestone state is set to 
+    ``frozenset({dtraj[-1], None})``.
  
     """
-    dtraj = msmtools.util.types.ensure_dtraj(dtraj)
     dtraj_it = reversed(dtraj) if forward else iter(dtraj)
     i = next(dtraj_it)
-    milestones = [frozenset({-1, i})]
+    milestones = [frozenset({None, i})]
     lifetimes = [0]
     for j in dtraj_it:
         lifetimes[-1] += 1
