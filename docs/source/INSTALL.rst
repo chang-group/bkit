@@ -27,12 +27,11 @@ approach. For this route you will need a working
     `coordinates <http://www.emma-project.org/latest/api/index_coor.html>`_
     package).
 
-3.  Clone the bkit repository and install the package with pip:
+3.  Install BKiT from the Git repository using pip:
 
     .. code::
 
-        (bkit) $ git clone https://github.com/chang-group/bkit
-        (bkit) $ pip install bkit/
+        (bkit) $ pip install git+https://github.com/chang-group/bkit
 
 4.  To run the example notebook, you will also need 
     `Jupyter <https://jupyter.org/>`_ notebook and 
