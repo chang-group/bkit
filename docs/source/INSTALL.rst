@@ -23,11 +23,11 @@ approach. For this route you will need a working
     
     This will install all BKiT dependencies, as well as provide you with 
     tools for manipulating and selecting features from MD trajectories 
-    (namely, `MDTraj <https://mdtraj.org/>`_ and the PyEMMA 
+    (namely, `MDTraj <https://mdtraj.org/>`_ and PyEMMA's
     `coordinates <http://www.emma-project.org/latest/api/index_coor.html>`_
     package).
 
-3.  Install BKiT from the Git repository using pip:
+3.  Install BKiT from the GitHub repository using pip:
 
     .. code::
 
