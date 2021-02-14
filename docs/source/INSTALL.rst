@@ -39,5 +39,5 @@ approach. For this route you will need a working
 
     .. code::
     
-        (bkit) $ conda install jupyter ipympl --channel conda-forge
+        (bkit) $ conda install notebook ipympl --channel conda-forge
 
