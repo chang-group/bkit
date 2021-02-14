@@ -24,7 +24,7 @@ are the corresponding state lifetimes.
 Model estimation
 ================
 
-Estimation of dynamical models from milestone schedule data.
+Estimation of dynamical models from milestone-schedule data.
 
 .. autosummary::
    :toctree: generated/
@@ -39,7 +39,8 @@ Estimation of dynamical models from milestone schedule data.
 Model analysis
 ==============
 
-Dynamical and stationary properties of milestone-to-milestone dynamics.
+Approximate models of milestone-to-milestone dynamics that can be queried
+for various dynamical and stationary properties.
 
 .. autosummary::
    :toctree: generated/
