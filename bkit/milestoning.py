@@ -293,14 +293,13 @@ class MarkovianMilestoningEstimator:
 
 
 class TrajectoryColoring:
-    """Mapping from continuous trajectories to milestone schedules.
-
-    The mapping is determined by a Voronoi partition of the state space.
+    """Mapping of continuous trajectories to milestone schedules.
         
     Parameters
     ----------
     anchors : (N, d) array_like
-        Generating points for Voronoi tessellation.
+        Generating points for Voronoi tessellation of `d`-dimensional
+        state space.
     parent_cell : (N,) array_like of int, optional
         The cell index associated with each anchor. Can be used to 
         define a Voronoi diagram with sites that are sets of anchors
@@ -441,6 +440,6 @@ def color_discrete_trajectory(dtraj, forward=False):
             lifetimes.append(0)
         i = j
     if forward:
-        return list(zip(reversed(milestones), reversed(lifetimes))) 
-    return list(zip(milestones, lifetimes))
+        return tuple(zip(reversed(milestones), reversed(lifetimes))) 
+    return tuple(zip(milestones, lifetimes))
  

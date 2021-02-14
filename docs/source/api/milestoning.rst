@@ -7,12 +7,8 @@ Milestoning (:mod:`bkit.milestoning`)
 Trajectory decomposition
 ========================
 
-Mapping of continuous or discretized trajectories to 
-*milestone schedules*. 
-A milestone `schedule <https://ncatlab.org/nlab/show/schedule>`_ is a list
-of tuples :math:`[(a_0,t_0),(a_1,t_1),\cdots,(a_n,t_n)]`, where 
-:math:`a_0,a_1,\dots,a_n` are the successive milestones visited, and 
-:math:`t_0,t_1,\dots,t_n` are the corresponding lifetimes.
+Mapping of trajectories to milestone 
+`schedules <https://ncatlab.org/nlab/show/schedule>`_.
 
 .. autosummary::
    :toctree: generated/
@@ -20,17 +16,36 @@ of tuples :math:`[(a_0,t_0),(a_1,t_1),\cdots,(a_n,t_n)]`, where
    TrajectoryColoring
    color_discrete_trajectory
 
-.. note:: For users with data in the form of individual 
-    milestone-to-milestone first-passage times, a first-passage event from
-    milestone :math:`a` to milestone :math:`b` after a time :math:`t` can 
-    be represented by a schedule :math:`[(a,t),(b,0)]`.
+A *milestone schedule* is a sequence of pairs 
+:math:`((a_1,t_1),\cdots,(a_n,t_n))`, where :math:`a_1,\dots,a_n` are the
+successive milestone states of a trajectory, and :math:`t_1,\dots,t_n` 
+are the corresponding state lifetimes.
 
-Markovian milestoning
-=====================
+Model estimation
+================
+
+Estimation of dynamical models from milestone schedule data.
 
 .. autosummary::
    :toctree: generated/
 
    MarkovianMilestoningEstimator
+
+.. note:: For users with data in the form of individual 
+    milestone-to-milestone first-passage times, a first-passage event from
+    milestone ``a`` to milestone ``b`` after a time ``t`` can 
+    be represented by a schedule ``((a, t), (b, 0))``.
+
+Model analysis
+==============
+
+Dynamical and stationary properties of milestone-to-milestone dynamics.
+
+.. autosummary::
+   :toctree: generated/
+
    MarkovianMilestoningModel
+
+
+
 
