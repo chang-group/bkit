@@ -8,6 +8,22 @@ import scipy.spatial
 import bkit.ctmc as ctmc
 
 
+class MilestoneState(frozenset):
+    """A milestone state defined by a pair of cell indices.
+
+    Parameters
+    ----------
+    i : hashable
+        Index of the first cell.
+    j : hashable
+        Index of the second cell.
+    
+    """
+
+    def __new__(cls, i, j):
+        return super().__new__(cls, {i, j})
+
+
 class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     """A milestoning process governed by a continuous-time Markov chain.
 
@@ -19,19 +35,16 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         the diagonal. 
     mean_lifetimes : (M,) array_like
         Vector of average milestone lifetimes.
-    milestones : sequence
-        List of milestone labels. Values must be unique and hashable.
+    states : Sequence[MilestoneState]
+        List of milestone states. Values must be unique.
            
     """
 
-    def __init__(self, transition_kernel, mean_lifetimes, milestones):
+    def __init__(self, transition_kernel, mean_lifetimes, states):
         Q = ctmc.rate_matrix(transition_kernel, 1/np.asarray(mean_lifetimes))
-        super().__init__(Q, states=milestones)
-
-    @property
-    def milestones(self):
-        """list: Alias self.states."""
-        return self.states
+        if any(type(a) != MilestoneState for a in states):
+            raise TypeError('states must be of type MilestoneState')
+        super().__init__(Q, states=states)
 
     @property
     def transition_kernel(self):
@@ -118,10 +131,8 @@ class MarkovianMilestoningEstimator:
 
         Parameters
         ----------
-        schedules : iterable of Sequence[tuple[frozenset, float]]
-            Sequences of (milestone index, lifetime) pairs. Transitions 
-            to or from milestones bordering unassigned cells (index -1) 
-            are ignored.
+        schedules : iterable of Sequence[tuple[MilestoneState, float]]
+            Sequences of (milestone state, lifetime) pairs. 
 
         Returns
         -------
@@ -130,18 +141,21 @@ class MarkovianMilestoningEstimator:
 
         Notes
         -----
+        Transitions to or from milestones bordering cells labeled ``None`` 
+        will be ignored.
+
         For users with data in the form of individual 
         milestone-to-milestone first-passage times, a first-passage event 
         from milestone ``a`` to milestone ``b`` after a time ``t`` can be 
-        represented by a schedule ``[(a, t), (b, 0)]``.
+        represented by a schedule ``((a, t), (b, 0))``.
 
         """
         first_passage_times = collections.defaultdict(list)
         for schedule in schedules:
             a, t = schedule[0]
             for b, s in schedule[1:]:
-                if type(a) != frozenset or type(b) != frozenset:
-                    raise TypeError('milestone indices must be frozensets')
+                if type(a) != MilestoneState or type(b) != MilestoneState:
+                    raise TypeError('states must be of type MilestoneState')
                 if t <= 0:
                     msg = 'nonterminal milestone lifetimes must be positive'
                     raise ValueError(msg)
@@ -300,16 +314,16 @@ class TrajectoryColoring:
     anchors : (N, d) array_like
         Generating points for Voronoi tessellation of `d`-dimensional
         state space.
+    boxsize : (d,) array_like or scalar, optional
+        Apply `d`-dimensional toroidal topology (periodic boundary 
+        conditions).
     parent_cell : (N,) array_like of int, optional
         The cell index associated with each anchor. Can be used to 
         define a Voronoi diagram with sites that are sets of anchors
         rather than single anchors. Default is range(N).
-    boxsize : (d,) array_like or scalar, optional
-        Apply `d`-dimensional toroidal topology (periodic boundary 
-        conditions).
     cutoff : positive float, optional
         Maximum distance to the nearest anchor. The region of state space
-        outside the cutoff is treated as a cell with index -1.
+        outside the cutoff is treated as a cell labeled ``None``.
     forward : bool, optional
         If True, track the next milestone hit (forward commitment),
         rather than the last milestone hit (backward commitment). Default
@@ -365,7 +379,7 @@ class TrajectoryColoring:
                 msg = 'number of cell indices much match number of anchors'
                 raise ValueError(msg)
         if np.isfinite(self.cutoff):
-            value = np.append(value, -1) 
+            value = np.append(value, None) 
         self._parent_cell = value
 
     @property
@@ -387,7 +401,7 @@ class TrajectoryColoring:
 
         Returns
         -------
-        schedule : Sequence[tuple[frozenset, int]]
+        schedule : Sequence[tuple[MilestoneState, int]]
             A sequence of (milestone state, lifetime) pairs.
 
         """
@@ -409,37 +423,36 @@ def color_discrete_trajectory(dtraj, forward=False):
     ----------
     dtraj : sequence
         A discrete-state trajectory, e.g., a sequence of cell indices. 
-        Values must be hashable. The value None is reserved to indicate 
-        an undefined state.
+        Values must be hashable. The value ``None`` is reserved to 
+        indicate an undefined state.
     forward : bool, optional
         If True, track the next milestone hit (forward commitment),
-        rather than the last milestone hit (backward commitment). Defaut 
-        is False.
+        rather than the last milestone hit (backward commitment). 
+        Default is False.
 
     Returns
     -------
-    Sequence[tuple[frozenset, int]]
+    Sequence[tuple[MilestoneState, int]]
         A sequence of (milestone state, lifetime) pairs. 
 
     Notes
     -----
     When `forward` is False (ordinary milestoning), the initial milestone
-    state is set to ``frozenset({None, dtraj[0]})``. When `forward` is
-    True, the final milestone state is set to 
-    ``frozenset({dtraj[-1], None})``.
+    state is set to ``{None, dtraj[0]}``. When `forward` is
+    True, the final milestone state is set to ``{dtraj[-1], None}``.
  
     """
     dtraj_it = reversed(dtraj) if forward else iter(dtraj)
     i = next(dtraj_it)
-    milestones = [frozenset({None, i})]
+    states = [MilestoneState(None, i)]
     lifetimes = [0]
     for j in dtraj_it:
         lifetimes[-1] += 1
-        if j not in milestones[-1]:
-            milestones.append(frozenset({i, j}))
+        if j not in states[-1]:
+            states.append(MilestoneState(i, j))
             lifetimes.append(0)
         i = j
     if forward:
-        return tuple(zip(reversed(milestones), reversed(lifetimes))) 
-    return tuple(zip(milestones, lifetimes))
+        return tuple(zip(reversed(states), reversed(lifetimes))) 
+    return tuple(zip(states, lifetimes))
  

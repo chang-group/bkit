@@ -19,7 +19,7 @@ Mapping of trajectories to milestone
 A *milestone schedule* is a sequence of pairs 
 :math:`((a_1,t_1),\cdots,(a_n,t_n))`, where :math:`a_1,\dots,a_n` are the
 successive milestone states of a trajectory, and :math:`t_1,\dots,t_n` 
-are the corresponding state lifetimes.
+are the corresponding lifetimes.
 
 Model estimation
 ================
@@ -39,8 +39,7 @@ Estimation of dynamical models from milestone-schedule data.
 Model analysis
 ==============
 
-Approximate models of milestone-to-milestone dynamics that can be queried
-for various dynamical and stationary properties.
+Models of milestone-to-milestone dynamics with queryable properties.
 
 .. autosummary::
    :toctree: generated/
