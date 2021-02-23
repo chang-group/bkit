@@ -24,7 +24,7 @@ are the corresponding lifetimes.
 Model estimation
 ================
 
-Estimation of dynamical models from milestone-schedule data.
+Estimation of dynamical models from sampled milestone schedules.
 
 .. autosummary::
    :toctree: generated/
@@ -39,13 +39,18 @@ Estimation of dynamical models from milestone-schedule data.
 Model analysis
 ==============
 
-Models of milestone-to-milestone dynamics with queryable properties.
+Models of milestoning dynamics with queryable properties (e.g., mean first
+passage times, committor probabilities).
 
 .. autosummary::
    :toctree: generated/
 
    MarkovianMilestoningModel
 
+Utilities
+=========
 
+.. autosummary::
+   :toctree: generated/
 
-
+   MilestoneState

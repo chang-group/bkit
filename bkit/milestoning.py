@@ -18,10 +18,18 @@ class MilestoneState(frozenset):
     j : hashable
         Index of the second cell.
     
+    Notes
+    -----
+    A milestone corresponds to an unordered pair of cells. Hence
+    ``MilestoneState(i, j)`` is equal to ``MilestoneState(j, i)``.
+
     """
 
     def __new__(cls, i, j):
         return super().__new__(cls, {i, j})
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}{tuple(self)}'
 
 
 class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
@@ -30,21 +38,41 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     Parameters
     ----------
     transition_kernel : (M, M) array_like
-        Matrix of milestone-to-milestone transition probabilities. Must 
-        be a row stochastic matrix (each row sums to 1) with all zeros on
-        the diagonal. 
+        Matrix of milestone-to-milestone jump probabilities. Must be a row
+        stochastic matrix (each row sums to one) with all zeros on the 
+        diagonal.
     mean_lifetimes : (M,) array_like
         Vector of average milestone lifetimes.
-    states : Sequence[MilestoneState]
-        List of milestone states. Values must be unique.
-           
+    stationary_flux : (M,) array_like, optional
+        Stationary flux vector. Must be stationary with respect to
+        `transition_kernel`. If not given, it will be computed during
+        initialization.
+    states : sequence of MilestoneState, optional
+        Milestone state labels. Values must be unique and consistent with
+        the elements of `transition_kernel`. (A jump from milestone state 
+        ``a`` to milestone state ``b`` can occur only if their 
+        intersection ``a & b`` is nonempty.) Default is
+        ``[MilestoneState(i, i+1) for i in range(M)]``, in which case
+        `transition_kernel` must be tridiagonal.
+    estimator : MarkovianMilestoningEstimator, optional
+        The estimator that produced the model. Default is None. 
+
     """
 
-    def __init__(self, transition_kernel, mean_lifetimes, states):
-        Q = ctmc.rate_matrix(transition_kernel, 1/np.asarray(mean_lifetimes))
-        if any(type(a) != MilestoneState for a in states):
+    def __init__(self, transition_kernel, mean_lifetimes, stationary_flux=None,
+                 states=None, estimator=None):
+        Q = ctmc.rate_matrix(transition_kernel, np.reciprocal(mean_lifetimes))
+        if stationary_flux is None:
+            pi = None
+        else:
+            pi = np.multiply(stationary_flux, mean_lifetimes)
+        if states is None:
+            states = [MilestoneState(i, i+1) for i in range(len(Q))]
+        elif any(type(a) != MilestoneState for a in states):
             raise TypeError('states must be of type MilestoneState')
-        super().__init__(Q, states=states)
+
+        super().__init__(Q, stationary_distribution=pi, states=states)
+        self.estimator = estimator
 
     @property
     def transition_kernel(self):
@@ -66,6 +94,19 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         """(M,) ndarray: Alias self.stationary_distribution."""
         return self.stationary_distribution
 
+    @property
+    def estimator(self):
+        """MarkovianMilestoningEstimator: Estimator that produced self."""
+        return self._estimator
+
+    @estimator.setter
+    def estimator(self, value):
+        if value != None:
+            cls = MarkovianMilestoningEstimator
+            if not isinstance(value, cls):
+                raise TypeError(f'estimator must be of type {cls.__name__}')
+        self._estimator = estimator 
+            
 
 class MarkovianMilestoningEstimator:
     """Maximum likelihood and Bayesian estimation of Markovian 
@@ -74,7 +115,9 @@ class MarkovianMilestoningEstimator:
     Parameters
     ----------
     reversible : bool, default True
-        If True, enforce detailed balance.
+        If True, enforce detailed balance. In this case estimation will 
+        be performed on the maximal *strongly* connected set of milestone
+        states.
 
     See Also
     --------
@@ -102,37 +145,24 @@ class MarkovianMilestoningEstimator:
     """
 
     def __init__(self, reversible=True):
-        self.reversible = bool(reversible)
-        self._model = None
+        self.reversible = reversible
 
     @property
     def reversible(self):
-        """bool: Whether to perform reversible estimation."""
+        """bool: Whether detailed balance is enforced."""
         return self._reversible
 
     @reversible.setter
     def reversible(self, value):
         self._reversible = bool(value)
  
-    @property
-    def count_matrix(self):
-        ...
-
-    @property
-    def total_times(self):
-        ...
-
-    @property
-    def milestones(self):
-        ...        
-
     def fit(self, schedules):
         """Fit the estimator to milestone schedule data.
 
         Parameters
         ----------
         schedules : iterable of Sequence[tuple[MilestoneState, float]]
-            Sequences of (milestone state, lifetime) pairs. 
+            Sequences of (milestone state, lifetime) pairs.
 
         Returns
         -------
@@ -141,63 +171,76 @@ class MarkovianMilestoningEstimator:
 
         Notes
         -----
-        Transitions to or from milestones bordering cells labeled ``None`` 
-        will be ignored.
-
         For users with data in the form of individual 
         milestone-to-milestone first-passage times, a first-passage event 
         from milestone ``a`` to milestone ``b`` after a time ``t`` can be 
         represented by a schedule ``((a, t), (b, 0))``.
+        
+        Transitions to or from milestones bordering cells labeled None 
+        will be ignored.
 
         """
+        # Build a mapping from ordered pairs of milestone states to lists
+        # of first passage times.
+        # TODO(Jeff): Separate input validation from processing logic.
         first_passage_times = collections.defaultdict(list)
         for schedule in schedules:
             a, t = schedule[0]
+            if type(a) != MilestoneState:
+                raise TypeError('states must be of type MilestoneState')
             for b, s in schedule[1:]:
-                if type(a) != MilestoneState or type(b) != MilestoneState:
+                if type(b) != MilestoneState:
                     raise TypeError('states must be of type MilestoneState')
                 if t <= 0:
                     msg = 'nonterminal milestone lifetimes must be positive'
                     raise ValueError(msg)
-                if t < 0:
-                    msg = 'terminal milestone lifetime must be nonnegative'
-                    raise ValueError(msg)
-
-                if -1 not in a and -1 not in b:
+                if None not in a and None not in b:
                     first_passage_times[a, b].append(t)
                 a, t = b, s
+            if t < 0:
+                msg = 'terminal milestone lifetime must be nonnegative'
+                raise ValueError(msg)
         
-        milestones = ({a for a, _ in first_passage_times}
-                      | {b for _, b in first_passage_times})
-        milestones = sorted(milestones, key=lambda a: sorted(a))
-        ix = {a: i for i, a in enumerate(milestones)}
-        m = len(milestones)
 
-        count_matrix = np.zeros((m, m), dtype=int)
-        total_times = np.zeros(m)
+
+        states = ({a for a, _ in first_passage_times} 
+                  | {b for _, b in first_passage_times})
+        states = sorted(states, key=lambda a: sorted(a))
+        ix = {a: i for i, a in enumerate(states)}
+        n_states = len(states)
+
+        count_matrix = np.zeros((n_states, n_states), dtype=int)
+        total_times = np.zeros(n_states)
         for (a, b), times in first_passage_times.items():
             count_matrix[ix[a], ix[b]] = len(times)
             total_times[ix[a]] += sum(times)
         
+        self.states_ = states
+        self.count_matrix_ = count_matrix
+        self.total_times_ = total_times
+
         connected = estimation.largest_connected_set(count_matrix,
             directed=(True if self.reversible else False))
-        milestones = [milestones[i] for i in connected]
-        count_matrix = count_matrix[connected, :][:, connected]
-        total_counts = count_matrix.sum(axis=1)
-        total_times = total_times[connected]
 
-        K = estimation.transition_matrix(
-            count_matrix, reversible=self.reversible)
-        np.fill_diagonal(K, 0)
-        t = total_times / total_counts
-        self._model = MarkovianMilestoningModel(K, t, milestones)
+        self.states_ = [states[i] for i in connected]
+        self.count_matrix_ = count_matrix[connected, :][:, connected]
+        self.total_times_ = total_times[connected]
 
         self._first_passage_times = first_passage_times
-        self._count_matrix = count_matrix
-        self._total_counts = total_counts
-        self._total_times = total_times
 
         return self
+
+    @property
+    def count_matrix_(self):
+        ...
+
+    @property
+    def total_times_(self):
+        ...
+
+    @property
+    def states_(self):
+        ...        
 
     def max_likelihood_estimate(self):
         r"""Return the maximum likelihood estimate.
@@ -209,7 +252,7 @@ class MarkovianMilestoningEstimator:
 
         See Also
         --------
-        msmtools.estimation.transition_matrix :
+        :func:`msmtools.estimation.transition_matrix` :
             Low-level function used to estimate the transition kernel.
 
         Notes
@@ -231,7 +274,11 @@ class MarkovianMilestoningEstimator:
         spent in milestone state :math:`a`.
 
         """
-        return self._model
+        K = estimation.transition_matrix(
+            self.count_matrix_, reversible=self.reversible)
+        np.fill_diagonal(K, 0)
+        t = self.total_times_ / self.count_matrix_.sum(axis=1)
+        return MarkovianMilestoningModel(K, t, self.states_, estimator=self)
 
     def posterior_sample(self, size=100):
         r"""Generate a sample from the posterior distribution.
@@ -243,12 +290,12 @@ class MarkovianMilestoningEstimator:
 
         Returns
         -------
-        list[MarkovianMilestoningModel]
+        Collection[MarkovianMilestoningModel]
             The sampled models.
 
         See Also
         --------
-        msmtools.estimation.tmatrix_sampler :
+        :func:`msmtools.estimation.tmatrix_sampler` :
             Low-level function used to sample transition kernels.
 
         Notes
@@ -286,25 +333,6 @@ class MarkovianMilestoningEstimator:
         return [MarkovianMilestoningModel(K, 1/v, self._model.states) 
                 for K, v in zip(Ks, vs)]
 
-    def first_passage_times(self, source, target):
-        """Sampled first passage times for each milestone pair.
-
-        Parameters
-        ----------
-        source : frozenset
-            Index of the source milestone.
-
-        target : frozenset
-            Index of the target milestone.
-
-        Returns
-        -------
-        list
-            Sampled first passage times from `source` to `target`.
-
-        """
-        return self._first_passage_times[source, target]
-
 
 class TrajectoryColoring:
     """Mapping of continuous trajectories to milestone schedules.
@@ -320,14 +348,16 @@ class TrajectoryColoring:
     parent_cell : (N,) array_like of int, optional
         The cell index associated with each anchor. Can be used to 
         define a Voronoi diagram with sites that are sets of anchors
-        rather than single anchors. Default is range(N).
-    cutoff : positive float, optional
-        Maximum distance to the nearest anchor. The region of state space
-        outside the cutoff is treated as a cell labeled ``None``.
+        rather than single anchors. By default, there are `N` cells,
+        one for each anchor.
     forward : bool, optional
         If True, track the next milestone hit (forward commitment),
         rather than the last milestone hit (backward commitment). Default
         is False.
+    cutoff : positive float, optional
+        Maximum distance to the nearest anchor. The region of state space
+        outside the cutoff is treated as a cell labeled None. This is 
+        primarily an ad hoc device.
 
     """
 
@@ -401,15 +431,15 @@ class TrajectoryColoring:
 
         Returns
         -------
-        schedule : Sequence[tuple[MilestoneState, int]]
+        schedule : Sequence[tuple[MilestoneState, float]]
             A sequence of (milestone state, lifetime) pairs.
 
         """
         dtraj = self._assign_cells(traj)
         return color_discrete_trajectory(dtraj, forward=self.forward)
 
-    def __call__(self, trajs):
-        return self.transform(trajs)
+    def __call__(self, traj):
+        return self.transform(traj)
  
     def _assign_cells(self, x):
         _, k = self._kdtree.query(x, distance_upper_bound=self.cutoff)
@@ -423,8 +453,8 @@ def color_discrete_trajectory(dtraj, forward=False):
     ----------
     dtraj : sequence
         A discrete-state trajectory, e.g., a sequence of cell indices. 
-        Values must be hashable. The value ``None`` is reserved to 
-        indicate an undefined state.
+        Values must be hashable. The value None is reserved to indicate
+        an undefined state.
     forward : bool, optional
         If True, track the next milestone hit (forward commitment),
         rather than the last milestone hit (backward commitment). 
@@ -432,14 +462,15 @@ def color_discrete_trajectory(dtraj, forward=False):
 
     Returns
     -------
-    Sequence[tuple[MilestoneState, int]]
+    Sequence[tuple[MilestoneState, float]]
         A sequence of (milestone state, lifetime) pairs. 
 
     Notes
     -----
     When `forward` is False (ordinary milestoning), the initial milestone
-    state is set to ``{None, dtraj[0]}``. When `forward` is
-    True, the final milestone state is set to ``{dtraj[-1], None}``.
+    state is set to ``MilestoneState(None, dtraj[0])``. When `forward` is
+    True, the final milestone state is set to 
+    ``MilestoneState(dtraj[-1], None)``.
  
     """
     dtraj_it = reversed(dtraj) if forward else iter(dtraj)

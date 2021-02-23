@@ -26,6 +26,7 @@ release = '0.1.0'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
+    'sphinx.ext.intersphinx',
     'sphinx.ext.napoleon',
     'sphinx.ext.mathjax',
 ]
@@ -42,6 +43,7 @@ extensions = [
 
 autosummary_generate = True
 autodoc_default_options = {
+    'show-inheritance': True,
     'inherited-members': True,
     'members': True,
     'member-order': 'groupwise',
@@ -49,7 +51,14 @@ autodoc_default_options = {
     'exclude-members': '__init__'
 }
 
+# -- Intersphinx -------------------------------------------------------------
+
+intersphinx_mapping = {
+    'msmtools': ('https://msmtools.readthedocs.io/en/latest/', None),
+}
+
 # -- Napoleon ----------------------------------------------------------------
+
 
 
 # -- Options for HTML output -------------------------------------------------
