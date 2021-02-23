@@ -74,8 +74,8 @@ class ContinuousTimeMarkovChain:
     
     @property
     def states(self):
-        """list: List of state labels."""
-        return self._states
+        """(M,) ndarray: State labels."""
+        return np.asarray(self._states)
 
     @states.setter
     def states(self, value):
@@ -95,10 +95,29 @@ class ContinuousTimeMarkovChain:
         """int: The number of states."""
         return self.rate_matrix.shape[0]
 
-    @property
-    def state_to_index(self):
-        """dict: Mapping from state labels to integer indices."""
-        return self._index
+    def index(self, state):
+        """Return the integer index of a state.
+
+        Parameters
+        ----------
+        state : hashable
+            A state label.
+
+        Returns
+        -------
+        int
+            The index of the state.
+
+        Raises
+        ------
+        ValueError
+            If `state` is not in self.states.
+
+        """
+        try:
+            return self._index[state]
+        except KeyError:
+            raise ValueError(f'state {state} is not in the chain')
 
     def committor(self, source, target, forward=True):
         """Committor probability between two sets of states.
@@ -179,7 +198,7 @@ class ContinuousTimeMarkovChain:
         """
         qplus = self.committor(source, target)
         if self.is_reversible:
-            qminus = 1.0 - qplus
+            qminus = 1. - qplus
         else:
             qminus = self.committor(source, target, forward=False)
 
