@@ -68,7 +68,7 @@ class ContinuousTimeMarkovChain:
 
     @property
     def is_reversible(self):
-        """bool: Whether the Markov chain is reversible."""
+        """bool: Whether the chain satisfies detailed balance."""
         X = self.stationary_distribution[:, np.newaxis] * self.rate_matrix
         return np.allclose(X, X.T)
     
@@ -147,7 +147,7 @@ class ContinuousTimeMarkovChain:
         Parameters
         ----------
         observable : (M,) array_like
-            A function on the state space of the Markov chain.
+            Observable vector on the state space of the Markov chain.
 
         Returns
         -------

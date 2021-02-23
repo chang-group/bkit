@@ -59,7 +59,7 @@ intersphinx_mapping = {
 
 # -- Napoleon ----------------------------------------------------------------
 
-
+napoleon_use_rtype = False
 
 # -- Options for HTML output -------------------------------------------------
 
