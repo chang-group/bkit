@@ -9,7 +9,7 @@ import bkit.ctmc as ctmc
 
 
 class MilestoneState(frozenset):
-    """A milestone state defined by a pair of cell indices.
+    """A milestone state identified by a pair of cells.
 
     Parameters
     ----------
@@ -20,8 +20,11 @@ class MilestoneState(frozenset):
     
     Notes
     -----
-    A milestone corresponds to an unordered pair of cells. Hence
-    ``MilestoneState(i, j)`` is equal to ``MilestoneState(j, i)``.
+    Milestone states are unordered: ``MilestoneState(i, j)`` is equal to
+    ``MilestoneState(j, i)``.
+
+    Distinct milestone states ``a`` and ``b`` are adjacent if their 
+    intersection ``a & b`` is nonempty.
 
     """
 
@@ -45,8 +48,8 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         Vector of average milestone lifetimes.
     stationary_flux : (M,) array_like, optional
         Stationary flux vector. Must be stationary with respect to
-        `transition_kernel`. If not given, it will be computed during
-        initialization.
+        `transition_kernel`. If not provided, the stationary flux will be
+        computed during initialization.
     states : sequence of MilestoneState, optional
         Milestone state labels. Values must be unique and consistent with
         the elements of `transition_kernel`. (A jump from milestone state 
@@ -62,14 +65,21 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     def __init__(self, transition_kernel, mean_lifetimes, stationary_flux=None,
                  states=None, estimator=None):
         Q = ctmc.rate_matrix(transition_kernel, np.reciprocal(mean_lifetimes))
+
         if stationary_flux is None:
             pi = None
         else:
             pi = np.multiply(stationary_flux, mean_lifetimes)
+
         if states is None:
             states = [MilestoneState(i, i+1) for i in range(len(Q))]
         elif any(type(a) != MilestoneState for a in states):
             raise TypeError('states must be of type MilestoneState')
+
+        for i, j in np.argwhere(transition_kernel):
+            a, b = states[i], states[j]
+            if not (a & b):
+                raise ValueError(f'cannot jump from {a} to {b}')
 
         super().__init__(Q, stationary_distribution=pi, states=states)
         self.estimator = estimator
@@ -82,7 +92,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
     @property
     def mean_lifetimes(self):
         """(M,) ndarray: Reciprocal of self.jump_rates."""
-        return 1 / self.jump_rates
+        return 1. / self.jump_rates
 
     @property
     def stationary_flux(self):
@@ -431,7 +441,7 @@ class TrajectoryColoring:
 
         Returns
         -------
-        schedule : Sequence[tuple[MilestoneState, float]]
+        schedule : Sequence[tuple[MilestoneState, int]]
             A sequence of (milestone state, lifetime) pairs.
 
         """
@@ -439,6 +449,7 @@ class TrajectoryColoring:
         return color_discrete_trajectory(dtraj, forward=self.forward)
 
     def __call__(self, traj):
+        """Alias self.transform(traj)."""
         return self.transform(traj)
  
     def _assign_cells(self, x):
@@ -462,7 +473,7 @@ def color_discrete_trajectory(dtraj, forward=False):
 
     Returns
     -------
-    Sequence[tuple[MilestoneState, float]]
+    schedule : Sequence[tuple[MilestoneState, int]]
         A sequence of (milestone state, lifetime) pairs. 
 
     Notes

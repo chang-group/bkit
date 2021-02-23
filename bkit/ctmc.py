@@ -16,7 +16,7 @@ class ContinuousTimeMarkovChain:
     stationary_distribution : (M,) array_like, optional
         Stationary distribution. Must be invariant with respect to the
         rate matrix. If not provided, the stationary distribution will be
-        computed from the rate matrix.
+        computed during initialization.
     states : sequence, optional
         State labels. Values must be unique and hashable. Will default 
         to range(M) if not provided.
@@ -96,7 +96,7 @@ class ContinuousTimeMarkovChain:
         return self.rate_matrix.shape[0]
 
     def index(self, state):
-        """Return the integer index of a state.
+        """Return the zero-based index of a state.
 
         Parameters
         ----------
@@ -106,12 +106,8 @@ class ContinuousTimeMarkovChain:
         Returns
         -------
         int
-            The index of the state.
-
-        Raises
-        ------
-        ValueError
-            If `state` is not in self.states.
+            The zero-based index of `state`. Raises a :py:exc:`ValueError`
+            if there is no state with the given label.
 
         """
         try:
@@ -120,7 +116,7 @@ class ContinuousTimeMarkovChain:
             raise ValueError(f'state {state} is not in the chain')
 
     def committor(self, source, target, forward=True):
-        """Committor probability between two sets of states.
+        """Compute the committor between sets of states.
 
         Parameters
         ----------
@@ -142,7 +138,7 @@ class ContinuousTimeMarkovChain:
                                 forward=forward)
 
     def expectation(self, observable):
-        """Stationary expectation of an observable.
+        """Compute the stationary expectation of an observable.
 
         Parameters
         ----------
@@ -152,14 +148,14 @@ class ContinuousTimeMarkovChain:
         Returns
         -------
         float
-            Expected value of the observable with respect to the 
+            The expected value of `observable` with respect to the 
             stationary probability distribution.
         
         """
         return np.dot(observable, self.stationary_distribution)
 
     def mfpt(self, target):
-        """Mean first passage time to a target set of states.
+        """Compute the mean first passage time to a set of states.
 
         Parameters
         ----------
@@ -180,7 +176,7 @@ class ContinuousTimeMarkovChain:
         return mfpt
 
     def reactive_flux(self, source, target):
-        """Reactive flux from transition path theory (TPT).
+        """Compute the reactive flux between sets of states.
 
         Parameters
         ----------
@@ -192,8 +188,12 @@ class ContinuousTimeMarkovChain:
         Returns
         -------
         msmtools.flux.ReactiveFlux
-            An object describing the reactive flux. See MSMTools 
-            documentation for full details.
+            An object describing the reactive flux. 
+
+        See Also
+        --------
+        :class:`msmtools.flux.ReactiveFlux`
+            The type of object returned by this method.
 
         """
         qplus = self.committor(source, target)
