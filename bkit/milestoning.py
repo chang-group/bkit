@@ -20,16 +20,11 @@ class MilestoneState(frozenset):
  
     Notes
     -----
-    A milestone state is a :py:obj:`frozenset` with two elements: the 
-    cell indices `i` and `j`. Some useful things to remember:
+    Milestone states are unordered: ``MilestoneState(i, j)`` is equal to 
+    ``MilestoneState(j, i)``.
 
-    * ``MilestoneState(i, j)`` is equal to ``MilestoneState(j, i)``.
-
-    * Two milestone states ``a`` and ``b`` are adjacent (incident) if 
-      their intersection ``a & b`` is nonempty.
-
-    * If ``states`` is a collection of milestone states, the set of
-      underlying cells is given by ``frozenset.union(*states)``.
+    Two milestone states ``a`` and ``b`` are adjacent (incident) if 
+    their intersection ``a & b`` is nonempty.
 
     """
 
@@ -133,13 +128,9 @@ class MarkovianMilestoningEstimator:
     Parameters
     ----------
     reversible : bool, default True
-        If True, enforce detailed balance. In this case estimation will 
-        be performed on the maximal *strongly* connected set of milestone
-        states.
-    observation_interval : positive float, default 1.0
-        The time resolution of the data used for fitting, that is, the 
-        time interval between analyzed trajectory frames. This interval
-        represents a lower bound on observed first passage times.
+        If True, estimation is performed on the largest *reversibly*
+        connected set of milestone states, and estimates are constrained 
+        to satisfy detailed balance. 
 
     See Also
     --------
@@ -166,9 +157,8 @@ class MarkovianMilestoningEstimator:
     
     """
 
-    def __init__(self, reversible=True, observation_interval=1.):
+    def __init__(self, reversible=True):
         self.reversible = reversible
-        self.observation_interval = observation_interval
 
     @property
     def reversible(self):
@@ -179,24 +169,15 @@ class MarkovianMilestoningEstimator:
     def reversible(self, value):
         self._reversible = bool(value)
  
-    @property
-    def observation_interval(self):
-        """float: Time resolution of the data."""
-        return self._observation_interval
-
-    @observation_interval.setter
-    def observation_interval(self, value):
-        if value <= 0:
-            raise ValueError('observation interval must be positive')
-        self._observation_interval = value
-
     def fit(self, schedules):
         """Fit the estimator to milestone schedule data.
 
         Parameters
         ----------
-        schedules : iterable of Sequence[tuple[MilestoneState, float]]
-            Sequences of (milestone state, lifetime) pairs.
+        schedules : iterable of Sequence[tuple[MilestoneState, int]]
+            Sequences of (milestone state, lifetime) pairs. Lifetimes are
+            assumed to be in units of a fixed observation interval (e.g., 
+            the time interval between analyzed frames or snapshots).
 
         Returns
         -------
@@ -237,7 +218,7 @@ class MarkovianMilestoningEstimator:
 
         states = ({a for a, _ in first_passage_times} 
                   | {b for _, b in first_passage_times})
-        states = sorted(states, key=lambda a: sorted(a))
+        states = np.array(sorted(states, key=lambda a: sorted(a)))
         ix = {a: i for i, a in enumerate(states)}
         n_states = len(states)
 
@@ -247,12 +228,37 @@ class MarkovianMilestoningEstimator:
             count_matrix[ix[a], ix[b]] = len(times)
             total_times[ix[a]] += sum(times)
         
-        self.first_passage_times_ = first_passage_times
-        self.states_ = states
-        self.count_matrix_ = count_matrix
-        self.total_times_ = total_times
+        self.first_passage_times = first_passage_times
+        self.states = states
+        self.count_matrix = count_matrix
+        self.total_times = total_times
 
         return self
+
+    @property
+    def states_(self):
+        """ndarray: Row/column labels of the transition count matrix."""
+        return self.states
+
+    @property
+    def count_matrix_(self):
+        """ndarray: Matrix of observed transition counts."""
+        return self.count_matrix
+
+    @property
+    def total_times_(self):
+        """ndarray: Total time observed in each milestone state."""
+        return self.total_times
+
+    @property
+    def first_passage_times_(self):
+        """dict: Observed first passage times between milestone states.
+
+        Keys are ordered pairs of milestone states. Values are lists of
+        first passage times.
+
+        """
+        return self.first_passage_times
 
     def connected_sets(self):
         """Compute the connected sets of states.
@@ -274,7 +280,7 @@ class MarkovianMilestoningEstimator:
  
         """
         return estimation.connected_sets(
-            self.count_matrix_, directed=(True if self.reversible else False))
+            self.count_matrix, directed=(True if self.reversible else False))
 
     def max_likelihood_estimate(self):
         r"""Return the maximum likelihood estimate.
@@ -309,9 +315,9 @@ class MarkovianMilestoningEstimator:
 
         """
         lcc = self.connected_sets()[0]  # largest connected component
-        states = [self.states_[i] for i in lcc]
-        count_matrix = self.count_matrix_[lcc, :][:, lcc]
-        total_times = self.total_times_[lcc]
+        states = self.states[lcc]
+        count_matrix = self.count_matrix[lcc, :][:, lcc]
+        total_times = self.total_times[lcc]
 
         t = total_times / count_matrix.sum(axis=1)  # mean lifetimes
 
@@ -364,9 +370,9 @@ class MarkovianMilestoningEstimator:
 
         """
         lcc = self.connected_sets()[0]  # largest connected component
-        states = [self.states_[i] for i in lcc]
-        count_matrix = self.count_matrix_[lcc, :][:, lcc]
-        total_times = self.total_times_[lcc]
+        states = self.states[lcc]
+        count_matrix = self.count_matrix[lcc, :][:, lcc]
+        total_times = self.total_times[lcc]
         total_counts = count_matrix.sum(axis=1)
 
         # Sample jump rates (inverse mean lifetimes).
