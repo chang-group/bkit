@@ -21,8 +21,6 @@ h = ('trajectory file compatible with the FeatureReader of the '
 parser.add_argument('trajfiles', metavar='TRAJFILE', nargs='+', help=h)
 args = parser.parse_args()
 
-print(args.model)
-quit()
 transformer = pyemma.load(args.model)
 
 for i, trajfile in enumerate(args.trajfiles):
