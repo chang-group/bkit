@@ -187,7 +187,7 @@ class MarkovianMilestoningEstimator:
         Notes
         -----
         For users with data in the form of individual 
-        milestone-to-milestone first-passage times, a first-passage event 
+        milestone-to-milestone first passage times, a first passage event 
         from milestone ``a`` to milestone ``b`` after a time ``t`` can be 
         represented by a schedule ``((a, t), (b, 0))``.
         

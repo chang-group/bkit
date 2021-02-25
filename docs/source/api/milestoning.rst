@@ -31,11 +31,6 @@ Estimation of kinetic models from milestone schedule data.
 
    MarkovianMilestoningEstimator
 
-.. note:: For users with data consisting of individual first passage times
-    (or trajectory fragments) between milestones, a first passage event 
-    from milestone :math:`a` to milestone :math:`b` after a time :math:`t`
-    can be represented by a schedule :math:`((a, t), (b, 0))`.
-
 Model analysis
 ==============
 
@@ -55,3 +50,4 @@ Common types, etc.
    :toctree: generated/
 
    MilestoneState
+
