@@ -17,22 +17,30 @@ class MilestoneState(frozenset):
         Index of the first cell.
     j : hashable
         Index of the second cell.
-    
+ 
     Notes
     -----
-    Milestone states are unordered: ``MilestoneState(i, j)`` is equal to
-    ``MilestoneState(j, i)``.
+    A milestone state is a :py:obj:`frozenset` with two elements: the 
+    cell indices `i` and `j`. Some useful things to remember:
 
-    Distinct milestone states ``a`` and ``b`` are adjacent if their 
-    intersection ``a & b`` is nonempty.
+    * ``MilestoneState(i, j)`` is equal to ``MilestoneState(j, i)``.
+
+    * Two milestone states ``a`` and ``b`` are adjacent (incident) if 
+      their intersection ``a & b`` is nonempty.
+
+    * If ``states`` is a collection of milestone states, the set of
+      underlying cells is given by ``frozenset.union(*states)``.
 
     """
 
     def __new__(cls, i, j):
         return super().__new__(cls, {i, j})
 
+    def __init__(self, i, j):
+        self._cells = (i, j)
+
     def __repr__(self):
-        return f'{self.__class__.__name__}{tuple(self)}'
+        return f'{self.__class__.__name__}{self._cells}'
 
 
 class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
@@ -115,7 +123,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
             cls = MarkovianMilestoningEstimator
             if not isinstance(value, cls):
                 raise TypeError(f'estimator must be of type {cls.__name__}')
-        self._estimator = estimator 
+        self._estimator = value 
             
 
 class MarkovianMilestoningEstimator:
@@ -128,6 +136,10 @@ class MarkovianMilestoningEstimator:
         If True, enforce detailed balance. In this case estimation will 
         be performed on the maximal *strongly* connected set of milestone
         states.
+    observation_interval : positive float, default 1.0
+        The time resolution of the data used for fitting, that is, the 
+        time interval between analyzed trajectory frames. This interval
+        represents a lower bound on observed first passage times.
 
     See Also
     --------
@@ -154,18 +166,30 @@ class MarkovianMilestoningEstimator:
     
     """
 
-    def __init__(self, reversible=True):
+    def __init__(self, reversible=True, observation_interval=1.):
         self.reversible = reversible
+        self.observation_interval = observation_interval
 
     @property
     def reversible(self):
-        """bool: Whether detailed balance is enforced."""
+        """bool: Whether to enforce detailed balance."""
         return self._reversible
 
     @reversible.setter
     def reversible(self, value):
         self._reversible = bool(value)
  
+    @property
+    def observation_interval(self):
+        """float: Time resolution of the data."""
+        return self._observation_interval
+
+    @observation_interval.setter
+    def observation_interval(self, value):
+        if value <= 0:
+            raise ValueError('observation interval must be positive')
+        self._observation_interval = value
+
     def fit(self, schedules):
         """Fit the estimator to milestone schedule data.
 
@@ -210,8 +234,6 @@ class MarkovianMilestoningEstimator:
             if t < 0:
                 msg = 'terminal milestone lifetime must be nonnegative'
                 raise ValueError(msg)
-        
-
 
         states = ({a for a, _ in first_passage_times} 
                   | {b for _, b in first_passage_times})
@@ -225,32 +247,34 @@ class MarkovianMilestoningEstimator:
             count_matrix[ix[a], ix[b]] = len(times)
             total_times[ix[a]] += sum(times)
         
+        self.first_passage_times_ = first_passage_times
         self.states_ = states
         self.count_matrix_ = count_matrix
         self.total_times_ = total_times
 
-        connected = estimation.largest_connected_set(count_matrix,
-            directed=(True if self.reversible else False))
-
-        self.states_ = [states[i] for i in connected]
-        self.count_matrix_ = count_matrix[connected, :][:, connected]
-        self.total_times_ = total_times[connected]
-
-        self._first_passage_times = first_passage_times
-
         return self
 
-    @property
-    def count_matrix_(self):
-        ...
+    def connected_sets(self):
+        """Compute the connected sets of states.
 
-    @property
-    def total_times_(self):
-        ...
+        If :attr:`self.reversible` is True, the connected sets are the 
+        strongly connected components of the directed graph with adjacency 
+        matrix :attr:`self.count_matrix_`. Otherwise, they are the weakly 
+        connected components.  
 
-    @property
-    def states_(self):
-        ...        
+        Returns
+        -------
+        connected_sets : list of ndarray(dtype=int)
+            Arrays of zero-based state indices.
+
+        See Also
+        --------
+        :func:`msmtools.estimation.connected_sets`
+            Low-level function used to compute connected sets.
+ 
+        """
+        return estimation.connected_sets(
+            self.count_matrix_, directed=(True if self.reversible else False))
 
     def max_likelihood_estimate(self):
         r"""Return the maximum likelihood estimate.
@@ -284,11 +308,25 @@ class MarkovianMilestoningEstimator:
         spent in milestone state :math:`a`.
 
         """
-        K = estimation.transition_matrix(
-            self.count_matrix_, reversible=self.reversible)
+        lcc = self.connected_sets()[0]  # largest connected component
+        states = [self.states_[i] for i in lcc]
+        count_matrix = self.count_matrix_[lcc, :][:, lcc]
+        total_times = self.total_times_[lcc]
+
+        t = total_times / count_matrix.sum(axis=1)  # mean lifetimes
+
+        # Estimate transition kernel, and return MLE model.
+        # -- Reversible case
+        if self.reversible:
+            K, q = estimation.transition_matrix(count_matrix, reversible=True,
+                                                return_statdist=True)
+            np.fill_diagonal(K, 0)
+            return MarkovianMilestoningModel(K, t, stationary_flux=q, 
+                                             states=states, estimator=self)
+        # -- Nonreversible case
+        K = estimation.transition_matrix(count_matrix, reversible=False)
         np.fill_diagonal(K, 0)
-        t = self.total_times_ / self.count_matrix_.sum(axis=1)
-        return MarkovianMilestoningModel(K, t, self.states_, estimator=self)
+        return MarkovianMilestoningModel(K, t, states=states, estimator=self)
 
     def posterior_sample(self, size=100):
         r"""Generate a sample from the posterior distribution.
@@ -325,22 +363,39 @@ class MarkovianMilestoningEstimator:
         :math:`T_a`.
 
         """
-        if self._model is None:
-            return None
+        lcc = self.connected_sets()[0]  # largest connected component
+        states = [self.states_[i] for i in lcc]
+        count_matrix = self.count_matrix_[lcc, :][:, lcc]
+        total_times = self.total_times_[lcc]
+        total_counts = count_matrix.sum(axis=1)
 
+        # Sample jump rates (inverse mean lifetimes).
+        rng = np.random.default_rng()
+        vs = np.zeros((size, len(states)))
+        for i, (n, r) in enumerate(zip(total_counts, total_times)):
+            vs[:, i] = rng.gamma(n, scale=1/r, size=size)
+        
+        # Initialize transition matrix sampler.
+        K_mle = estimation.transition_matrix(
+            count_matrix, reversible=self.reversible)
         sampler = estimation.tmatrix_sampler(
-            self._count_matrix, reversible=self.reversible,
-            T0=self._model.transition_kernel)
+            count_matrix, reversible=self.reversible, T0=K_mle)
+
+        # Sample transition kernels, and return sampled models.
+        # -- Reversible case
+        if self.reversible:
+            Ks, qs = sampler.sample(nsamples=size, return_statdist=True)
+            for K in Ks:
+                np.fill_diagonal(K, 0)
+            return [MarkovianMilestoningModel(K, 1/v, stationary_flux=q,
+                                              states=states, estimator=self)
+                    for K, v, q in zip(Ks, vs, qs)] 
+        # -- Nonreversible case
         Ks = sampler.sample(nsamples=size)
         for K in Ks:
             np.fill_diagonal(K, 0)
-
-        rng = np.random.default_rng()
-        vs = np.zeros((size, self._model.n_states))
-        for i, (n, r) in enumerate(zip(self._total_counts, self._total_times)):
-            vs[:, i] = rng.gamma(n, scale=1/r, size=size)
-
-        return [MarkovianMilestoningModel(K, 1/v, self._model.states) 
+        return [MarkovianMilestoningModel(K, 1/v, 
+                                          states=states, estimator=self) 
                 for K, v in zip(Ks, vs)]
 
 
@@ -454,7 +509,7 @@ class TrajectoryColoring:
  
     def _assign_cells(self, x):
         _, k = self._kdtree.query(x, distance_upper_bound=self.cutoff)
-        return self.parent_cell[k]
+        return self._parent_cell[k]
  
 
 def color_discrete_trajectory(dtraj, forward=False):
