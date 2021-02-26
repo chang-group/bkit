@@ -235,6 +235,11 @@ class ContinuousTimeMarkovChain:
             The increasing sequence of arrival (jump) times. The arrival
             time at the starting state is defined to be zero.
 
+        See Also
+        --------
+        :func:`msmtools.generation.generate_traj`
+            Used to generate a realization of the embedded Markov chain.
+
         """
         if n_jumps is None:
             if target is None:
@@ -250,7 +255,7 @@ class ContinuousTimeMarkovChain:
         if len(dtraj) > 1:
             rng = np.random.default_rng()
             mean_lifetimes = 1. / self.jump_rates[dtraj[:-1]]
-            lifetimes = rng.exponential(mean_lifetimes)
+            lifetimes = rng.exponential(scale=mean_lifetimes)
             arrival_times[1:] = np.cumsum(lifetimes)
 
         return self.states[dtraj], arrival_times
