@@ -77,18 +77,17 @@ class ContinuousTimeMarkovChain:
     @property
     def states(self):
         """(M,) ndarray of objects: State labels."""
-        return np.asarray(self._states)
+        return self._states
 
     @states.setter
     def states(self, value):
         if value is None:
             value = range(self.rate_matrix.shape[0])
-        value = list(value)
-        if len(value) > len(set(value)):
+        value = np.asarray(value, dtype=object)
+        if value.shape != (self.n_states,):
+            raise ValueError(f'states must be of shape ({self.n_states},)')
+        if len(value) > len(np.unique(value)):
             raise ValueError('state labels must be unique')
-        if len(value) != self.n_states:
-            msg = 'number of labels must match number of states'
-            raise ValueError(msg)
         self._states = value
         self._index = {x: i for i, x in enumerate(value)}
 
