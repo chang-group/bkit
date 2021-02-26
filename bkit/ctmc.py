@@ -212,7 +212,7 @@ class ContinuousTimeMarkovChain:
     def simulate(self, n_jumps=None, start=None, target=None):
         """Generate a realization of the chain.
 
-        The simulation will stop after a given number of jumps or when
+        The simulation is stopped after a given number of jumps or when
         a given target is reached. If both are provided, the simulation
         length is determined by the earlier of the two stopping times.
 
@@ -222,7 +222,7 @@ class ContinuousTimeMarkovChain:
             Number of jumps to simulate. Required when `target` is None.
         start : int, optional
             Index of the starting state. If not provided, it will be drawn
-            from the stationary distribution of :attr:`jump_matrix`.
+            according to the stationary distribution of self.jump_matrix.
         target : int or list of int, optional
             Indices of the target states. Required when `n_jumps` is None.
 
