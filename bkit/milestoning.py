@@ -394,7 +394,7 @@ class MarkovianMilestoningEstimator:
                 for K, v in zip(Ks, vs)]
 
 
-def _check_time_discretization(mean_lifetimes, states, threshold=10.)
+def _check_time_discretization(mean_lifetimes, states, threshold=10.):
     indices = np.flatnonzero(mean_lifetimes < threshold)
     if indices.size > 0:
         import warnings
