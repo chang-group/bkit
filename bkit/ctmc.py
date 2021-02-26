@@ -3,6 +3,8 @@
 import numpy as np
 import msmtools.analysis as msmana
 import msmtools.flux
+import msmtools.generation as msmgen
+import sys
 
 
 class ContinuousTimeMarkovChain:
@@ -207,6 +209,51 @@ class ContinuousTimeMarkovChain:
 
         return msmtools.flux.ReactiveFlux(source, target, flux_matrix,
             mu=self.stationary_distribution, qminus=qminus, qplus=qplus)
+
+    def simulate(self, n_jumps=None, start=None, target=None):
+        """Generate a realization of the chain.
+
+        The simulation will stop after a given number of jumps or when
+        a given target is reached. If both are provided, the simulation
+        length is determined by the earlier of the two stopping times.
+
+        Parameters
+        ----------
+        n_jumps : int, optional
+            Number of jumps to simulate. Required when `target` is None.
+        start : int, optional
+            Index of the starting state. If not provided, it will be drawn
+            from the stationary distribution of :attr:`jump_matrix`.
+        target : int or list of int, optional
+            Indices of the target states. Required when `n_jumps` is None.
+
+        Returns
+        -------
+        dtraj : sequence
+            The sequence of states visited by the chain.
+        arrival_times : sequence of floats
+            The increasing sequence of arrival (jump) times. The arrival
+            time at the starting state is defined to be zero.
+
+        """
+        if n_jumps is None:
+            if target is None:
+                raise ValueError('must provide a stopping criterion')
+            n_jumps = sys.maxsize
+        elif n_jumps < 0:
+                raise ValueError('number of jumps must be nonnegative')
+
+        dtraj = msmgen.generate_traj(self.jump_matrix, n_jumps+1,
+                                     start=start, stop=target)
+
+        arrival_times = np.zeros_like(dtraj, dtype=float)
+        if len(dtraj) > 1:
+            rng = np.random.default_rng()
+            mean_lifetimes = 1. / self.jump_rates[dtraj[:-1]]
+            lifetimes = rng.exponential(mean_lifetimes)
+            arrival_times[1:] = np.cumsum(lifetimes)
+
+        return self.states[dtraj], arrival_times
 
 
 def jump_matrix(rate_matrix):
