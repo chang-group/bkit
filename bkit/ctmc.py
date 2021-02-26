@@ -214,7 +214,7 @@ class ContinuousTimeMarkovChain:
 
         The simulation is stopped after a given number of jumps or when
         a given target is reached. If both are provided, the simulation
-        length is determined by the earlier of the two stopping times.
+        is stopped at the earlier of the two stopping times.
 
         Parameters
         ----------
