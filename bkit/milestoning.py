@@ -207,26 +207,29 @@ class MarkovianMilestoningEstimator:
                 if type(b) != MilestoneState:
                     raise TypeError('states must be of type MilestoneState')
                 if t <= 0:
-                    msg = 'nonterminal milestone lifetimes must be positive'
+                    msg = 'nonterminal lifetimes must be positive'
                     raise ValueError(msg)
                 if None not in a and None not in b:
                     first_passage_times[a, b].append(t)
                 a, t = b, s
             if t < 0:
-                msg = 'terminal milestone lifetime must be nonnegative'
+                msg = 'terminal lifetime must be nonnegative'
                 raise ValueError(msg)
 
-        states = ({a for a, _ in first_passage_times} 
-                  | {b for _, b in first_passage_times})
-        states = np.array(sorted(states, key=lambda a: sorted(a)))
-        ix = {a: i for i, a in enumerate(states)}
-        n_states = len(states)
+        # Observed states and their zero-based indices:
+        states = set.union(*({a, b} for a, b in first_passage_times))
+        states = np.array(sorted(states, key=lambda a: sorted(a)), 
+                          dtype=object)
+        index = {a: i for i, a in enumerate(states)}
 
-        count_matrix = np.zeros((n_states, n_states), dtype=int)
-        total_times = np.zeros(n_states)
+        # Populate the transition count matrix and the vector of total 
+        # times spent in each state.
+        # TODO(Jeff): Allow for sparse count matrices.
+        count_matrix = np.zeros((states.size, states.size), dtype=int)
+        total_times = np.zeros(states.size)
         for (a, b), times in first_passage_times.items():
-            count_matrix[ix[a], ix[b]] = len(times)
-            total_times[ix[a]] += sum(times)
+            count_matrix[index[a], index[b]] = len(times)
+            total_times[index[a]] += sum(times)
         
         self.first_passage_times = first_passage_times
         self.states = states
@@ -301,6 +304,7 @@ class MarkovianMilestoningEstimator:
         total_times = self.total_times[lcc]
 
         t = total_times / count_matrix.sum(axis=1)  # mean lifetimes
+        _check_time_discretization(t, states)
 
         # Estimate transition kernel, and return MLE model.
         # -- Reversible case
@@ -358,6 +362,8 @@ class MarkovianMilestoningEstimator:
         total_times = self.total_times[lcc]
         total_counts = count_matrix.sum(axis=1)
 
+        _check_time_discretization(total_times / total_counts, states)
+
         # Sample jump rates (inverse mean lifetimes).
         rng = np.random.default_rng()
         vs = np.zeros((size, len(states)))
@@ -386,6 +392,16 @@ class MarkovianMilestoningEstimator:
         return [MarkovianMilestoningModel(K, 1/v, 
                                           states=states, estimator=self) 
                 for K, v in zip(Ks, vs)]
+
+
+def _check_time_discretization(mean_lifetimes, states, threshold=10.)
+    indices = np.flatnonzero(mean_lifetimes < threshold)
+    if indices.size > 0:
+        import warnings
+        warnings.warn(f'The sample mean lifetime is less than {threshold}'
+                      + 'for the following states:\n- '
+                      + '\n- '.join(map(str, states[indices]))
+                      + '\nBeware of time discretization errors.')
 
 
 class TrajectoryColoring:
