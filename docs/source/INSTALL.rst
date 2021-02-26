@@ -25,7 +25,8 @@ approach. For this route you will need a working
     tools for manipulating and selecting features from MD trajectories 
     (namely, `MDTraj <https://mdtraj.org/>`_ and PyEMMA's
     `coordinates <http://www.emma-project.org/latest/api/index_coor.html>`_
-    package).
+    package). To install only the bare essentials, replace `pyemma` with 
+    `msmtools` in the above command.
 
 3.  Install BKiT from the GitHub repository using pip:
 
@@ -33,7 +34,7 @@ approach. For this route you will need a working
 
         (bkit) $ pip install git+https://github.com/chang-group/bkit
 
-4.  To run the example notebook, you will also need 
+4.  To run the example notebooks, you will also need 
     `Jupyter <https://jupyter.org/>`_ notebook and 
     `ipympl <https://github.com/matplotlib/ipympl>`_:
 

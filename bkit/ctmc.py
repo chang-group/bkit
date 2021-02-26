@@ -74,7 +74,7 @@ class ContinuousTimeMarkovChain:
     
     @property
     def states(self):
-        """(M,) ndarray: State labels."""
+        """(M,) ndarray of objects: State labels."""
         return np.asarray(self._states)
 
     @states.setter

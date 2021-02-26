@@ -237,7 +237,7 @@ class MarkovianMilestoningEstimator:
 
     @property
     def states_(self):
-        """ndarray: Row/column labels of the transition count matrix."""
+        """ndarray of objects: Row/column labels of the count matrix."""
         return self.states
 
     @property
@@ -252,35 +252,14 @@ class MarkovianMilestoningEstimator:
 
     @property
     def first_passage_times_(self):
-        """dict: Observed first passage times between milestone states.
+        """dict[tuple[MilestoneState, MilestoneState], list[float]]: \
+        Observed first passage times between milestone states.
 
-        Keys are ordered pairs of milestone states. Values are lists of
-        first passage times.
+        ``first_passage_times_[a, b]`` is a list of first passage times
+        from state ``a`` to state ``b``.
 
         """
         return self.first_passage_times
-
-    def connected_sets(self):
-        """Compute the connected sets of states.
-
-        If :attr:`self.reversible` is True, the connected sets are the 
-        strongly connected components of the directed graph with adjacency 
-        matrix :attr:`self.count_matrix_`. Otherwise, they are the weakly 
-        connected components.  
-
-        Returns
-        -------
-        connected_sets : list of ndarray(dtype=int)
-            Arrays of zero-based state indices.
-
-        See Also
-        --------
-        :func:`msmtools.estimation.connected_sets`
-            Low-level function used to compute connected sets.
- 
-        """
-        return estimation.connected_sets(
-            self.count_matrix, directed=(True if self.reversible else False))
 
     def max_likelihood_estimate(self):
         r"""Return the maximum likelihood estimate.
@@ -314,7 +293,9 @@ class MarkovianMilestoningEstimator:
         spent in milestone state :math:`a`.
 
         """
-        lcc = self.connected_sets()[0]  # largest connected component
+        # Restrict data to the largest connected set of states.
+        lcc = estimation.largest_connected_set(
+            self.count_matrix, directed=(True if self.reversible else False))
         states = self.states[lcc]
         count_matrix = self.count_matrix[lcc, :][:, lcc]
         total_times = self.total_times[lcc]
@@ -369,7 +350,9 @@ class MarkovianMilestoningEstimator:
         :math:`T_a`.
 
         """
-        lcc = self.connected_sets()[0]  # largest connected component
+        # Restrict data to the largest connected set of states.
+        lcc = estimation.largest_connected_set(
+            self.count_matrix, directed=(True if self.reversible else False))
         states = self.states[lcc]
         count_matrix = self.count_matrix[lcc, :][:, lcc]
         total_times = self.total_times[lcc]
