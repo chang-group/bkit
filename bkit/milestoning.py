@@ -53,7 +53,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
         Stationary flux vector. Must be stationary with respect to
         `transition_kernel`. If not provided, the stationary flux will be
         computed during initialization.
-    states : sequence of MilestoneState, optional
+    states : (M,) array_like of MilestoneState, optional
         Milestone state labels. Values must be unique and consistent with
         the elements of `transition_kernel`. (A jump from milestone state 
         ``a`` to milestone state ``b`` can occur only if their 

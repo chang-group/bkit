@@ -19,7 +19,7 @@ class ContinuousTimeMarkovChain:
         Stationary distribution. Must be invariant with respect to the
         rate matrix. If not provided, the stationary distribution will be
         computed during initialization.
-    states : sequence, optional
+    states : (M,) array_like, optional
         State labels. Values must be unique and hashable. Will default 
         to range(M) if not provided.
  
