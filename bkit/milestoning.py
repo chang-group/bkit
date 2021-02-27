@@ -123,7 +123,7 @@ class MarkovianMilestoningModel(ctmc.ContinuousTimeMarkovChain):
 
     @estimator.setter
     def estimator(self, value):
-        if value != None:
+        if value is not None:
             cls = MarkovianMilestoningEstimator
             if not isinstance(value, cls):
                 raise TypeError(f'estimator must be of type {cls.__name__}')
@@ -210,10 +210,10 @@ class MarkovianMilestoningEstimator:
         first_passage_times = collections.defaultdict(list)
         for schedule in schedules:
             a, t = schedule[0]
-            if type(a) != MilestoneState:
+            if type(a) is not MilestoneState:
                 raise TypeError('states must be of type MilestoneState')
             for b, s in schedule[1:]:
-                if type(b) != MilestoneState:
+                if type(b) is not MilestoneState:
                     raise TypeError('states must be of type MilestoneState')
                 if t <= 0:
                     msg = 'nonterminal lifetimes must be positive'

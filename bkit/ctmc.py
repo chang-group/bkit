@@ -121,10 +121,10 @@ class ContinuousTimeMarkovChain:
 
         Parameters
         ----------
-        source : list of int
-            Indices of the source states.
-        target : list of int
-            Indices of the target states.
+        source : Set
+            The set of source states.
+        target : Set
+            The set of target states.
         forward : bool, optional
             If true, compute the forward committor (default). If false,
             compute the backward committor.
@@ -135,6 +135,8 @@ class ContinuousTimeMarkovChain:
             Vector of committor probabilities.
 
         """
+        source = [self.index(state) for state in set(source)]
+        target = [self.index(state) for state in set(target)]
         return msmana.committor(self.jump_matrix, source, target, 
                                 forward=forward)
 
@@ -160,8 +162,8 @@ class ContinuousTimeMarkovChain:
 
         Parameters
         ----------
-        target : int or list of int
-            Indices of the target states.
+        target : Set
+            The set of target states.
 
         Returns
         -------
@@ -169,11 +171,11 @@ class ContinuousTimeMarkovChain:
             Mean first passage time from each state to the target set.
 
         """
-        is_source = np.ones(self.n_states, dtype=bool)
-        is_source[target] = False
-        Q = self.rate_matrix[is_source, :][:, is_source]
+        absorbing = [self.index(state) for state in set(target)]
+        transient = np.delete(np.arange(self.n_states), absorbing)
+        Q = self.rate_matrix[transient, :][:, transient]
         mfpt = np.zeros(self.n_states)
-        mfpt[is_source] = np.linalg.solve(Q, -np.ones(Q.shape[0]))
+        mfpt[transient] = np.linalg.solve(Q, -np.ones(Q.shape[0]))
         return mfpt
 
     def reactive_flux(self, source, target):
@@ -181,10 +183,10 @@ class ContinuousTimeMarkovChain:
 
         Parameters
         ----------
-        source : list of int
-            Indices of the source states.
-        target : list of int
-            Indices of the target states.
+        source : Set
+            The set of source states.
+        target : Set
+            The set of target states.
 
         Returns
         -------
@@ -203,11 +205,15 @@ class ContinuousTimeMarkovChain:
         else:
             qminus = self.committor(source, target, forward=False)
 
-        flux_matrix = msmtools.flux.flux_matrix(self.rate_matrix,
-            self.stationary_distribution, qminus, qplus)
+        flux_matrix = msmtools.flux.flux_matrix(
+            self.rate_matrix, self.stationary_distribution, qminus, qplus)
 
-        return msmtools.flux.ReactiveFlux(source, target, flux_matrix,
-            mu=self.stationary_distribution, qminus=qminus, qplus=qplus)
+        source = [self.index(state) for state in set(source)]
+        target = [self.index(state) for state in set(target)]
+
+        return msmtools.flux.ReactiveFlux(
+            source, target, flux_matrix, mu=self.stationary_distribution, 
+            qminus=qminus, qplus=qplus)
 
     def simulate(self, n_jumps=None, start=None, target=None):
         """Generate a realization of the chain.
@@ -220,11 +226,11 @@ class ContinuousTimeMarkovChain:
         ----------
         n_jumps : int, optional
             Number of jumps to simulate. Required when `target` is None.
-        start : int, optional
-            Index of the starting state. If not provided, it will be drawn
-            according to the stationary distribution of self.jump_matrix.
-        target : int or list of int, optional
-            Indices of the target states. Required when `n_jumps` is None.
+        start : hashable, optional
+            The starting state. If not provided, it will be drawn according
+            to the stationary distribution of self.jump_matrix.
+        target : Set, optional
+            The set of target states. Required when `n_jumps` is None.
 
         Returns
         -------
@@ -239,13 +245,17 @@ class ContinuousTimeMarkovChain:
         :func:`msmtools.generation.generate_traj`
             Used to generate a realization of the embedded Markov chain.
 
-        """
+        """ 
         if n_jumps is None:
             if target is None:
                 raise ValueError('must provide a stopping criterion')
             n_jumps = sys.maxsize
         elif n_jumps < 0:
                 raise ValueError('number of jumps must be nonnegative')
+        if start is not None:
+            start = self.index(start)
+        if target is not None:
+            target = [self.index(state) for state in set(target)]
 
         dtraj = msmgen.generate_traj(self.jump_matrix, n_jumps+1,
                                      start=start, stop=target)
