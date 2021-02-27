@@ -32,7 +32,16 @@ class MilestoneState(frozenset):
         return super().__new__(cls, {i, j})
 
     def __init__(self, i, j):
-        self._cells = (i, j)
+        try:
+            self._cells = tuple(sorted((i, j)))
+        except TypeError:
+            self._cells = (i, j)
+
+    def __lt__(self, other):
+        try:
+            return self._cells < other._cells
+        except TypeError:
+            return id(self) < id(other)        
 
     def __repr__(self):
         return f'{self.__class__.__name__}{self._cells}'
@@ -218,8 +227,7 @@ class MarkovianMilestoningEstimator:
 
         # Observed states and their zero-based indices:
         states = set.union(*({a, b} for a, b in first_passage_times))
-        states = np.array(sorted(states, key=lambda a: sorted(a)), 
-                          dtype=object)
+        states = np.array(sorted(states), dtype=object)
         index = {a: i for i, a in enumerate(states)}
 
         # Populate the transition count matrix and the vector of total 
